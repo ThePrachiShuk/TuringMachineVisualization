@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>
+			Turing Machine Simulator — Advanced Visual & Analytical Platform
+		</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;700&display=swap"
+			rel="stylesheet"
+		/>
+		<link rel="stylesheet" href="css/styles.css" />
+		<!-- D3.js v7 for state graph and complexity charts -->
+		<script src="https://d3js.org/d3.v7.min.js"></script>
+	</head>
+	<body>
+		<!-- ===== HEADER ===== -->
+		<header class="app-header">
+			<div class="header-left">
+				<a href="index.html" class="header-back">← Back</a>
+				<div class="header-divider"></div>
+				<span class="header-wordmark">TM Simulator</span>
+			</div>
+			<div class="header-right">
+				<div class="status-badge" id="machine-status-badge">IDLE</div>
+				<button
+					class="btn btn-outline"
+					id="btn-load-example"
+					title="Load a preset example machine"
+				>
+					Examples
+				</button>
+			</div>
+		</header>
+
+		<!-- ===== MAIN LAYOUT ===== -->
+		<div class="app-container">
+			<!-- ===== LEFT SIDEBAR: CONFIGURATION PANEL ===== -->
+			<aside class="config-panel" id="config-panel">
+				<div class="panel-header">
+					<span>Configuration</span>
+					<button
+						class="btn-icon"
+						id="btn-toggle-config"
+						title="Collapse panel"
+					>
+						◀
+					</button>
+				</div>
+
+				<div class="panel-content" id="config-panel-content">
+					<!-- States -->
+					<div class="config-section">
+						<label class="config-label"
+							>States <span class="hint">(comma-separated)</span></label
+						>
+						<input
+							type="text"
+							id="cfg-states"
+							class="config-input"
+							placeholder="q0, q1, q2, qH"
+							value="q0, q1, qA, qR"
+						/>
+					</div>
+
+					<!-- Tape Alphabet -->
+					<div class="config-section">
+						<label class="config-label"
+							>Tape Alphabet <span class="hint">(comma-separated)</span></label
+						>
+						<input
+							type="text"
+							id="cfg-alphabet"
+							class="config-input"
+							placeholder="0, 1, _"
+							value="0, 1, _"
+						/>
+					</div>
+
+					<!-- Blank Symbol -->
+					<div class="config-section">
+						<label class="config-label">Blank Symbol</label>
+						<input
+							type="text"
+							id="cfg-blank"
+							class="config-input"
+							placeholder="_"
+							value="_"
+							maxlength="1"
+							style="width: 60px"
+						/>
+					</div>
+
+					<!-- Start State -->
+					<div class="config-section">
+						<label class="config-label">Start State</label>
+						<input
+							type="text"
+							id="cfg-start"
+							class="config-input"
+							placeholder="q0"
+							value="q0"
+						/>
+					</div>
+
+					<!-- Halt States -->
+					<div class="config-section">
+						<label class="config-label"
+							>Halt / Accept States
+							<span class="hint">(comma-separated)</span></label
+						>
+						<input
+							type="text"
+							id="cfg-halt"
+							class="config-input"
+							placeholder="qA, qR"
+							value="qA, qR"
+						/>
+					</div>
+
+					<!-- Input String -->
+					<div class="config-section">
+						<label class="config-label">Input String</label>
+						<input
+							type="text"
+							id="cfg-input"
+							class="config-input"
+							placeholder="Enter tape input..."
+							value="1011"
+						/>
+					</div>
+
+					<!-- Max Steps Limit -->
+					<div class="config-section">
+						<label class="config-label"
+							>Max Steps <span class="hint">(safety limit)</span></label
+						>
+						<input
+							type="number"
+							id="cfg-maxsteps"
+							class="config-input"
+							value="50000"
+							min="1"
+							max="1000000"
+						/>
+					</div>
+
+					<!-- Transition Rules Table -->
+					<div class="config-section">
+						<div class="rules-header">
+							<label class="config-label">Transition Rules</label>
+							<button class="btn btn-sm btn-accent" id="btn-add-rule">
+								+ Add Rule
+							</button>
+						</div>
+						<div class="rules-table-wrapper">
+							<table class="rules-table" id="rules-table">
+								<thead>
+									<tr>
+										<th>State</th>
+										<th>Read</th>
+										<th>Write</th>
+										<th>Dir</th>
+										<th>Next</th>
+										<th></th>
+									</tr>
+								</thead>
+								<tbody id="rules-tbody">
+									<!-- Rows injected dynamically -->
+								</tbody>
+							</table>
+						</div>
+					</div>
+
+					<!-- Action Buttons -->
+					<div class="config-actions">
+						<button class="btn btn-primary btn-full" id="btn-apply-config">
+							✓ Apply Configuration
+						</button>
+					</div>
+				</div>
+			</aside>
+
+			<!-- ===== MAIN CONTENT AREA ===== -->
+			<main class="main-content">
+				<!-- Tab Navigation -->
+				<nav class="tab-nav">
+					<button class="tab-btn active" data-tab="simulator">Simulator</button>
+					<button class="tab-btn" data-tab="graph">State Graph</button>
+					<button class="tab-btn" data-tab="timeline">Timeline</button>
+					<button class="tab-btn" data-tab="complexity">Complexity</button>
+					<button class="tab-btn" data-tab="beaver">Busy Beaver</button>
+				</nav>
+
+				<!-- ===== TAB: SIMULATOR ===== -->
+				<div class="tab-pane active" id="tab-simulator">
+					<!-- Current Machine State Info Bar -->
+					<div class="state-info-bar">
+						<div class="info-chip">
+							<span class="info-label">State</span>
+							<span class="info-value" id="info-current-state">—</span>
+						</div>
+						<div class="info-chip">
+							<span class="info-label">Reading</span>
+							<span class="info-value" id="info-reading">—</span>
+						</div>
+						<div class="info-chip">
+							<span class="info-label">Writing</span>
+							<span class="info-value" id="info-writing">—</span>
+						</div>
+						<div class="info-chip">
+							<span class="info-label">Head Move</span>
+							<span class="info-value" id="info-direction">—</span>
+						</div>
+						<div class="info-chip">
+							<span class="info-label">Step</span>
+							<span class="info-value" id="info-step">0</span>
+						</div>
+						<div class="info-chip">
+							<span class="info-label">Tape Cells</span>
+							<span class="info-value" id="info-tape-cells">0</span>
+						</div>
+					</div>
+
+					<!-- Active Transition Display -->
+					<div class="transition-display" id="transition-display">
+						<span class="td-label">Active Transition:</span>
+						<span class="td-rule" id="td-rule"
+							>Configure a machine and press Apply</span
+						>
+					</div>
+
+					<!-- Tape Visualization -->
+					<div class="tape-section">
+						<div class="tape-label">
+							<span>← TAPE →</span>
+							<span class="tape-pos" id="tape-pos-label">Head @ 0</span>
+						</div>
+						<div class="tape-container" id="tape-container">
+							<div class="tape-scroll" id="tape-scroll">
+								<!-- Tape cells rendered dynamically -->
+							</div>
+							<!-- Fixed head highlight — always centered, tape slides beneath -->
+							<div class="tape-head-frame" aria-hidden="true"></div>
+						</div>
+						<div class="head-indicator">▲</div>
+					</div>
+
+					<!-- Playback Controls -->
+					<div class="controls-bar">
+						<div class="controls-left">
+							<button
+								class="btn btn-control"
+								id="btn-step"
+								title="Execute one step"
+							>
+								Step
+							</button>
+							<button
+								class="btn btn-control btn-run"
+								id="btn-run"
+								title="Run continuously"
+							>
+								Run
+							</button>
+							<button
+								class="btn btn-control"
+								id="btn-pause"
+								title="Pause execution"
+								disabled
+							>
+								Pause
+							</button>
+							<button
+								class="btn btn-control btn-reset"
+								id="btn-reset"
+								title="Reset to initial configuration"
+							>
+								Reset
+							</button>
+						</div>
+						<div class="controls-right">
+							<label class="speed-label">Speed:</label>
+							<input
+								type="range"
+								id="speed-slider"
+								min="1"
+								max="10"
+								value="5"
+								class="speed-slider"
+								title="Adjust simulation speed"
+							/>
+							<span class="speed-value" id="speed-value">5</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- ===== TAB: STATE GRAPH ===== -->
+				<div class="tab-pane" id="tab-graph">
+					<div class="graph-toolbar">
+						<button class="btn btn-sm" id="btn-graph-reset-layout">
+							Reset Layout
+						</button>
+						<button class="btn btn-sm" id="btn-graph-zoom-fit">Fit View</button>
+						<div class="graph-legend">
+							<span class="legend-item"
+								><span class="legend-dot start"></span>Start State</span
+							>
+							<span class="legend-item"
+								><span class="legend-dot halt"></span>Halt State</span
+							>
+							<span class="legend-item"
+								><span class="legend-dot active"></span>Active State</span
+							>
+							<span class="legend-item"
+								><span class="legend-line active-line"></span>Active
+								Transition</span
+							>
+						</div>
+					</div>
+					<div class="graph-container" id="graph-container">
+						<svg id="state-graph-svg">
+							<defs>
+								<marker
+									id="arrow"
+									markerWidth="10"
+									markerHeight="7"
+									refX="9"
+									refY="3.5"
+									orient="auto"
+								>
+									<polygon points="0 0, 10 3.5, 0 7" fill="#7c8cf8" />
+								</marker>
+								<marker
+									id="arrow-active"
+									markerWidth="10"
+									markerHeight="7"
+									refX="9"
+									refY="3.5"
+									orient="auto"
+								>
+									<polygon points="0 0, 10 3.5, 0 7" fill="#f6c90e" />
+								</marker>
+								<marker
+									id="arrow-halt"
+									markerWidth="10"
+									markerHeight="7"
+									refX="9"
+									refY="3.5"
+									orient="auto"
+								>
+									<polygon points="0 0, 10 3.5, 0 7" fill="#2ecc71" />
+								</marker>
+								<filter id="glow">
+									<feGaussianBlur stdDeviation="3" result="coloredBlur" />
+									<feMerge>
+										<feMergeNode in="coloredBlur" />
+										<feMergeNode in="SourceGraphic" />
+									</feMerge>
+								</filter>
+							</defs>
+						</svg>
+						<div class="graph-empty-msg" id="graph-empty-msg">
+							Apply a machine configuration to view the state graph
+						</div>
+					</div>
+				</div>
+
+				<!-- ===== TAB: TIMELINE ===== -->
+				<div class="tab-pane" id="tab-timeline">
+					<div class="timeline-toolbar">
+						<span class="timeline-title">Computation Trace</span>
+						<div class="timeline-controls">
+							<button class="btn btn-sm" id="btn-timeline-export">
+								Export CSV
+							</button>
+							<input
+								type="number"
+								id="timeline-jump-input"
+								class="config-input"
+								placeholder="Step #"
+								min="0"
+								style="width: 90px"
+							/>
+							<button class="btn btn-sm btn-accent" id="btn-timeline-jump">
+								Jump →
+							</button>
+						</div>
+					</div>
+					<div class="timeline-stats" id="timeline-stats">
+						<span>Steps recorded: <strong id="tl-step-count">0</strong></span>
+						<span>Tape cells used: <strong id="tl-tape-cells">0</strong></span>
+					</div>
+					<div class="timeline-container" id="timeline-container">
+						<table class="timeline-table">
+							<thead>
+								<tr>
+									<th>Step</th>
+									<th>State</th>
+									<th>Head</th>
+									<th>Read</th>
+									<th>Write</th>
+									<th>Dir</th>
+									<th>Next State</th>
+									<th>Tape Snapshot</th>
+								</tr>
+							</thead>
+							<tbody id="timeline-tbody">
+								<tr class="timeline-empty-row">
+									<td colspan="8">
+										Run the simulation to see computation history
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+
+				<!-- ===== TAB: COMPLEXITY ===== -->
+				<div class="tab-pane" id="tab-complexity">
+					<div class="complexity-header">
+						<h2>Computational Complexity Analysis</h2>
+						<p>
+							Live tracking of time (steps) and space (tape cells) usage during
+							execution
+						</p>
+					</div>
+					<div class="complexity-stats-grid">
+						<div class="stat-card">
+							<div class="stat-number" id="stat-total-steps">0</div>
+							<div class="stat-label">Total Steps</div>
+						</div>
+						<div class="stat-card">
+							<div class="stat-number" id="stat-max-tape">0</div>
+							<div class="stat-label">Max Tape Cells</div>
+						</div>
+						<div class="stat-card">
+							<div class="stat-number" id="stat-tape-span">0</div>
+							<div class="stat-label">Tape Span</div>
+						</div>
+						<div class="stat-card">
+							<div class="stat-number" id="stat-avg-cells">0</div>
+							<div class="stat-label">Avg Cells / Step</div>
+						</div>
+					</div>
+					<div class="charts-grid">
+						<div class="chart-card">
+							<div class="chart-title">Tape Cells Used vs. Steps</div>
+							<div id="chart-tape-growth" class="chart-area"></div>
+						</div>
+						<div class="chart-card">
+							<div class="chart-title">Head Position Over Time</div>
+							<div id="chart-head-pos" class="chart-area"></div>
+						</div>
+					</div>
+				</div>
+
+				<!-- ===== TAB: BUSY BEAVER ===== -->
+				<div class="tab-pane" id="tab-beaver">
+					<div class="beaver-header">
+						<h2>Busy Beaver Exploration</h2>
+						<p>
+							Explore the Busy Beaver function — machines that maximize ones
+							written before halting. This connects directly to the Halting
+							Problem and the limits of computability.
+						</p>
+					</div>
+
+					<div class="beaver-info-grid">
+						<div class="bb-table-card">
+							<h3>The Busy Beaver Function Σ(n)</h3>
+							<table class="bb-table">
+								<thead>
+									<tr>
+										<th>States (n)</th>
+										<th>Σ(n) — Max 1s</th>
+										<th>S(n) — Max Steps</th>
+										<th>Status</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr>
+										<td>1</td>
+										<td>1</td>
+										<td>1</td>
+										<td class="status-known">Known</td>
+									</tr>
+									<tr>
+										<td>2</td>
+										<td>4</td>
+										<td>6</td>
+										<td class="status-known">Known</td>
+									</tr>
+									<tr>
+										<td>3</td>
+										<td>6</td>
+										<td>21</td>
+										<td class="status-known">Known</td>
+									</tr>
+									<tr>
+										<td>4</td>
+										<td>13</td>
+										<td>107</td>
+										<td class="status-known">Known</td>
+									</tr>
+									<tr>
+										<td>5</td>
+										<td>4,098</td>
+										<td>47,176,870</td>
+										<td class="status-known">Known</td>
+									</tr>
+									<tr>
+										<td>6</td>
+										<td>&gt; 10↑↑15</td>
+										<td>Unknown</td>
+										<td class="status-unknown">Unresolved</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+
+						<div class="bb-theory-card">
+							<h3>Why Busy Beaver is Uncomputable</h3>
+							<p>
+								No algorithm can compute Σ(n) for all n. If it could, we could
+								solve the Halting Problem: run any n-state machine for Σ(n)
+								steps — if it hasn't halted, it never will.
+							</p>
+							<p>
+								BB(5) takes over 47 million steps while only using 6 tape cells
+								— demonstrating how deceptively simple rules can lead to
+								astronomically complex behavior.
+							</p>
+						</div>
+					</div>
+
+					<div class="beaver-machines">
+						<h3>Champion Busy Beaver Machines</h3>
+						<div class="beaver-cards" id="beaver-cards">
+							<!-- Populated by busy-beaver.js -->
+						</div>
+					</div>
+
+					<div class="beaver-simulate-panel">
+						<div id="beaver-selected-info" class="beaver-selected-info">
+							Select a Busy Beaver machine above to load it
+						</div>
+						<div class="beaver-actions">
+							<button class="btn btn-primary" id="btn-bb-load" disabled>
+								Load into Simulator ▶
+							</button>
+							<button class="btn btn-outline" id="btn-bb-run-full" disabled>
+								Auto-Run to Completion
+							</button>
+						</div>
+					</div>
+				</div>
+			</main>
+		</div>
+
+		<!-- ===== EXAMPLES MODAL ===== -->
+		<div class="modal-overlay" id="examples-modal" style="display: none">
+			<div class="modal">
+				<div class="modal-header">
+					<h3>Load Example Machine</h3>
+					<button class="btn-icon modal-close" data-close="examples-modal">
+						✕
+					</button>
+				</div>
+				<div class="modal-body">
+					<div class="example-list" id="example-list">
+						<!-- Populated dynamically -->
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- ===== LOOP DETECTION MODAL ===== -->
+		<div class="modal-overlay" id="loop-modal" style="display: none">
+			<div class="modal modal-warning">
+				<div class="modal-header">
+					<h3>Infinite Loop Detected</h3>
+					<button class="btn-icon modal-close" data-close="loop-modal">
+						✕
+					</button>
+				</div>
+				<div class="modal-body">
+					<div class="loop-info">
+						<p>
+							The machine has entered a repeating configuration and will
+							<strong>never halt</strong>.
+						</p>
+						<div class="loop-details" id="loop-details"></div>
+						<p>
+							This is a concrete demonstration of the
+							<strong>Halting Problem</strong>: it is impossible to determine in
+							advance whether any arbitrary Turing Machine will halt.
+						</p>
+					</div>
+					<div class="modal-actions">
+						<button class="btn btn-outline modal-close" data-close="loop-modal">
+							Continue Anyway
+						</button>
+						<button class="btn btn-primary" id="btn-loop-stop">
+							Stop Machine
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- ===== HALT MODAL ===== -->
+		<div class="modal-overlay" id="halt-modal" style="display: none">
+			<div class="modal" id="halt-modal-inner">
+				<div class="modal-header">
+					<h3 id="halt-modal-title">Machine Halted</h3>
+					<button class="btn-icon modal-close" data-close="halt-modal">
+						✕
+					</button>
+				</div>
+				<div class="modal-body">
+					<div class="halt-info" id="halt-info"></div>
+					<div class="modal-actions">
+						<button class="btn btn-primary modal-close" data-close="halt-modal">
+							OK
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- ===== SCRIPTS ===== -->
+		<script src="js/tape.js"></script>
+		<script src="js/turing-machine.js"></script>
+		<script src="js/loop-detector.js"></script>
+		<script src="js/state-graph.js"></script>
+		<script src="js/timeline.js"></script>
+		<script src="js/complexity-tracker.js"></script>
+		<script src="js/busy-beaver.js"></script>
+		<script src="js/main.js"></script>
+	</body>
+</html>

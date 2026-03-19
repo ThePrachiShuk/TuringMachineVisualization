@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Turing Machine Simulator — Theory &amp; Introduction</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;700&display=swap"
+			rel="stylesheet"
+		/>
+		<link rel="stylesheet" href="css/landing.css" />
+	</head>
+	<body>
+		<!-- ========================================================
+         NAV
+    ======================================================== -->
+		<nav class="nav" aria-label="Primary navigation">
+			<span class="nav-logo">TM Simulator</span>
+			<ul class="nav-links">
+				<li><a href="#theory">Theory</a></li>
+				<li><a href="#components">Components</a></li>
+				<li><a href="#visual">Visual</a></li>
+				<li><a href="#busy-beaver">Busy Beaver</a></li>
+				<li><a href="#simulator">Simulator</a></li>
+				<li><a href="simulator.html" class="nav-cta">Launch →</a></li>
+			</ul>
+		</nav>
+
+		<!-- ========================================================
+         HERO
+    ======================================================== -->
+		<section class="hero" id="top">
+			<span class="hero-label"
+				>TAFL — Theory of Automata &amp; Formal Languages</span
+			>
+			<h1 class="hero-title">The <em>Turing Machine</em><br />Simulator</h1>
+			<p class="hero-subtitle">
+				An interactive platform for exploring the foundations of computability
+				theory — from transition functions to the unsolvable Halting Problem.
+			</p>
+			<div class="hero-actions">
+				<a href="simulator.html" class="btn-primary">
+					Run the Simulator <span>→</span>
+				</a>
+				<a href="#theory" class="btn-secondary"> Learn the Theory </a>
+			</div>
+			<div class="hero-scroll-hint" aria-hidden="true">
+				<span>scroll</span>
+				<div class="scroll-dot"></div>
+			</div>
+		</section>
+
+		<hr class="section-divider" />
+
+		<!-- ========================================================
+         SECTION 1 — AUTOMATA THEORY
+    ======================================================== -->
+		<section class="section" id="theory">
+			<p class="section-label reveal">01 — Automata Theory</p>
+			<h2 class="section-title reveal reveal-delay-1">
+				What is Automata Theory?
+			</h2>
+			<p class="section-body reveal reveal-delay-2">
+				Automata Theory is a branch of computer science and mathematics that
+				studies abstract machines — mathematical models of computation — and the
+				problems these machines can solve. It provides the theoretical backbone
+				for understanding
+				<em>what computers can compute</em>, how efficiently they can compute
+				it, and — crucially —
+				<em>what lies beyond the reach of any computer</em>.
+			</p>
+
+			<div class="card-grid reveal reveal-delay-2">
+				<div class="card">
+					<span class="card-icon">⬡</span>
+					<h3 class="card-title">Finite Automata</h3>
+					<p class="card-text">
+						The simplest machine model. Accepts or rejects strings based on a
+						fixed set of states. Recognises regular languages.
+					</p>
+				</div>
+				<div class="card">
+					<span class="card-icon">⬡</span>
+					<h3 class="card-title">Pushdown Automata</h3>
+					<p class="card-text">
+						Extends finite automata with a stack, allowing recognition of
+						context-free languages such as balanced parentheses.
+					</p>
+				</div>
+				<div class="card">
+					<span class="card-icon">⬡</span>
+					<h3 class="card-title">Turing Machines</h3>
+					<p class="card-text">
+						The most powerful model. Equivalent in computational power to any
+						modern computer, capturing the full extent of what is computable.
+					</p>
+				</div>
+				<div class="card">
+					<span class="card-icon">⬡</span>
+					<h3 class="card-title">Computability Theory</h3>
+					<p class="card-text">
+						Studies which problems are solvable by algorithms at all — the
+						Halting Problem being the canonical example of an unsolvable
+						problem.
+					</p>
+				</div>
+			</div>
+		</section>
+
+		<hr class="section-divider" />
+
+		<!-- ========================================================
+         SECTION 2 — TURING MACHINE
+    ======================================================== -->
+		<section class="section" id="turing-machine">
+			<p class="section-label reveal">02 — The Turing Machine</p>
+			<h2 class="section-title reveal reveal-delay-1">
+				What is a Turing Machine?
+			</h2>
+			<p class="section-body reveal reveal-delay-2">
+				Introduced by Alan Turing in 1936, the Turing Machine is a theoretical
+				model of computation that defines the fundamental limits of what can be
+				computed. Despite its simplicity, it is capable of performing any
+				calculation that any modern computer can perform. It consists of four
+				core elements working in concert.
+			</p>
+			<p class="section-body reveal reveal-delay-3" style="margin-top: 16px">
+				A Turing Machine is formally defined as the 7-tuple
+				<code
+					style="
+						font-family: var(--font-mono, monospace);
+						font-size: 13px;
+						color: #888;
+						background: #111;
+						padding: 2px 8px;
+						border-radius: 4px;
+						border: 1px solid #1e1e1e;
+					"
+				>
+					(Q, Σ, Γ, δ, q₀, q_accept, q_reject)
+				</code>
+				— a finite set of states, input alphabet, tape alphabet, transition
+				function, start state, accept state, and reject state.
+			</p>
+		</section>
+
+		<!-- ========================================================
+         SECTION 3 — COMPONENTS
+    ======================================================== -->
+		<section class="section" id="components" style="padding-top: 0">
+			<p class="section-label reveal">03 — Components</p>
+			<h2 class="section-title reveal reveal-delay-1">Machine Components</h2>
+
+			<div class="components-layout reveal reveal-delay-2">
+				<div class="component-item">
+					<p class="component-number">01</p>
+					<h3 class="component-name">Tape</h3>
+					<p class="component-desc">
+						The tape serves as the machine's unbounded memory. It is divided
+						into discrete cells, each holding exactly one symbol from a defined
+						tape alphabet Γ. The tape extends infinitely in both directions and
+						is initially populated with the input string, with all remaining
+						cells containing the blank symbol (□).
+					</p>
+				</div>
+
+				<div class="component-item">
+					<p class="component-number">02</p>
+					<h3 class="component-name">Read / Write Head</h3>
+					<p class="component-desc">
+						The head is always positioned over exactly one tape cell. At each
+						step of computation it reads the symbol in the current cell, writes
+						a new symbol (which may be the same), then moves either one cell to
+						the left (L) or one cell to the right (R). Head movement and writes
+						happen simultaneously in a single atomic step.
+					</p>
+				</div>
+
+				<div class="component-item">
+					<p class="component-number">03</p>
+					<h3 class="component-name">States</h3>
+					<p class="component-desc">
+						The machine possesses a finite set Q of internal states. Each state
+						represents a discrete stage of the computation. At any given moment
+						the machine is in exactly one state. The current state, combined
+						with the symbol under the head, completely determines what the
+						machine does next.
+					</p>
+				</div>
+
+				<div class="component-item">
+					<p class="component-number">04</p>
+					<h3 class="component-name">Start State</h3>
+					<p class="component-desc">
+						One designated state q₀ ∈ Q is the start state. When the machine is
+						initialised with an input string, the head is placed on the leftmost
+						symbol of that string and the machine enters q₀ to begin
+						computation.
+					</p>
+				</div>
+
+				<div class="component-item">
+					<p class="component-number">05</p>
+					<h3 class="component-name">Accept / Halting States</h3>
+					<p class="component-desc">
+						Certain states are designated as halt states (q_accept or q_reject).
+						When the machine transitions into a halt state, computation stops
+						immediately. The machine then either accepts or rejects the input
+						depending on which halting state was reached. Not all machines halt.
+					</p>
+				</div>
+
+				<div class="component-item">
+					<p class="component-number">06</p>
+					<h3 class="component-name">Transition Function</h3>
+					<p class="component-desc">
+						The transition function δ : Q × Γ → Q × Γ × {L, R} is the machine's
+						"program". Given the current state and the symbol under the head, it
+						specifies the next state, the symbol to write, and the direction of
+						head movement. If no rule applies for the current (state, symbol)
+						pair, the machine halts immediately.
+					</p>
+				</div>
+			</div>
+		</section>
+
+		<hr class="section-divider" />
+
+		<!-- ========================================================
+         SECTION 4 — VISUAL DIAGRAM
+    ======================================================== -->
+		<section class="section" id="visual">
+			<p class="section-label reveal">04 — Visual Explanation</p>
+			<h2 class="section-title reveal reveal-delay-1">See it in Action</h2>
+			<p class="section-body reveal reveal-delay-2">
+				Step through an interactive example. The machine reads the input
+				<code style="font-family: monospace; font-size: 13px; color: #888"
+					>101</code
+				>
+				on the tape, processes each symbol according to its transition rules,
+				and halts. Use the controls to step forward, backward, or play
+				automatically.
+			</p>
+
+			<div class="tape-diagram reveal reveal-delay-2">
+				<p class="tape-diagram-title">Interactive Tape Walkthrough</p>
+
+				<!-- HEAD INDICATORS -->
+				<div class="head-row" aria-hidden="true">
+					<!-- spacer for left ellipsis -->
+					<div class="head-ellipsis-spacer"></div>
+					<!-- 9 head indicators matching the 9 tape cells -->
+					<div class="head-indicator-vis">
+						<span class="head-arrow">▲</span>
+						<span class="head-label">head</span>
+					</div>
+					<div class="head-indicator-vis">
+						<span class="head-arrow">▲</span>
+						<span class="head-label">head</span>
+					</div>
+					<div class="head-indicator-vis">
+						<span class="head-arrow">▲</span>
+						<span class="head-label">head</span>
+					</div>
+					<div class="head-indicator-vis active">
+						<span class="head-arrow">▲</span>
+						<span class="head-label">head</span>
+					</div>
+					<div class="head-indicator-vis">
+						<span class="head-arrow">▲</span>
+						<span class="head-label">head</span>
+					</div>
+					<div class="head-indicator-vis">
+						<span class="head-arrow">▲</span>
+						<span class="head-label">head</span>
+					</div>
+					<div class="head-indicator-vis">
+						<span class="head-arrow">▲</span>
+						<span class="head-label">head</span>
+					</div>
+					<div class="head-indicator-vis">
+						<span class="head-arrow">▲</span>
+						<span class="head-label">head</span>
+					</div>
+					<div class="head-indicator-vis">
+						<span class="head-arrow">▲</span>
+						<span class="head-label">head</span>
+					</div>
+					<!-- spacer for right ellipsis -->
+					<div class="head-ellipsis-spacer"></div>
+				</div>
+
+				<!-- TAPE STRIP -->
+				<div class="tape-visual" role="img" aria-label="Turing machine tape">
+					<span class="tape-ellipsis">···</span>
+					<div class="tape-cell-vis">
+						<span class="cell-val">_</span>
+						<span class="cell-idx">0</span>
+					</div>
+					<div class="tape-cell-vis">
+						<span class="cell-val">_</span>
+						<span class="cell-idx">1</span>
+					</div>
+					<div class="tape-cell-vis">
+						<span class="cell-val">_</span>
+						<span class="cell-idx">2</span>
+					</div>
+					<div class="tape-cell-vis active">
+						<span class="cell-val">1</span>
+						<span class="cell-idx">3</span>
+					</div>
+					<div class="tape-cell-vis written">
+						<span class="cell-val">0</span>
+						<span class="cell-idx">4</span>
+					</div>
+					<div class="tape-cell-vis written">
+						<span class="cell-val">1</span>
+						<span class="cell-idx">5</span>
+					</div>
+					<div class="tape-cell-vis">
+						<span class="cell-val">_</span>
+						<span class="cell-idx">6</span>
+					</div>
+					<div class="tape-cell-vis">
+						<span class="cell-val">_</span>
+						<span class="cell-idx">7</span>
+					</div>
+					<div class="tape-cell-vis">
+						<span class="cell-val">_</span>
+						<span class="cell-idx">8</span>
+					</div>
+					<span class="tape-ellipsis">···</span>
+				</div>
+
+				<!-- TRANSITION DIAGRAM -->
+				<div class="transition-diagram">
+					<div class="trans-state active-state"><span>q0</span></div>
+					<div class="trans-arrow">
+						<div class="trans-line"></div>
+						<div class="trans-rule">read 1 → write 1, move R</div>
+					</div>
+					<div class="trans-state next-state"><span>q0</span></div>
+				</div>
+
+				<!-- CONTROLS -->
+				<div class="tape-controls">
+					<button class="tape-btn" id="tape-prev" disabled>← Prev</button>
+					<button class="tape-btn" id="tape-play">▶ Play</button>
+					<span class="tape-step-counter">step 1 / 7</span>
+					<button class="tape-btn" id="tape-next">Next →</button>
+				</div>
+			</div>
+			<!-- /tape-diagram -->
+		</section>
+
+		<hr class="section-divider" />
+
+		<!-- ========================================================
+         SECTION 5 — BUSY BEAVER
+    ======================================================== -->
+		<section class="bb-section" id="busy-beaver">
+			<p class="section-label reveal">05 — Busy Beaver Numbers</p>
+			<h2 class="section-title reveal reveal-delay-1">
+				The Busy Beaver Problem
+			</h2>
+			<p class="section-body reveal reveal-delay-2">
+				Among all halting Turing Machines with exactly n states and a binary
+				tape alphabet, the
+				<strong style="color: #aaa">Busy Beaver</strong> machine is the one that
+				writes the most 1s on the tape before halting. The Busy Beaver function
+				Σ(n) gives the maximum number of 1s any such machine can write.
+			</p>
+			<p class="section-body reveal reveal-delay-3" style="margin-top: 14px">
+				Σ(n) grows <em>faster than any computable function</em>. Even defining
+				Σ(5) precisely required decades of distributed computation, and Σ(6)
+				remains unknown. This makes the Busy Beaver function fundamentally
+				uncomputable.
+			</p>
+
+			<div class="bb-table-wrap reveal reveal-delay-2">
+				<table class="bb-table" aria-label="Busy Beaver values">
+					<thead>
+						<tr>
+							<th>States (n)</th>
+							<th>Σ(n) — Max 1s written</th>
+							<th>S(n) — Max steps before halt</th>
+							<th>Champion machine</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>1</td>
+							<td>1</td>
+							<td>1</td>
+							<td>Trivially computable</td>
+						</tr>
+						<tr>
+							<td>2</td>
+							<td>4</td>
+							<td>6</td>
+							<td>BB(2) — known since 1962</td>
+						</tr>
+						<tr>
+							<td>3</td>
+							<td>6</td>
+							<td>21</td>
+							<td>BB(3) — known since 1965</td>
+						</tr>
+						<tr>
+							<td>4</td>
+							<td>13</td>
+							<td>107</td>
+							<td>BB(4) — known since 1983</td>
+						</tr>
+						<tr>
+							<td>5</td>
+							<td>4098</td>
+							<td>47,176,870</td>
+							<td>BB(5) — confirmed 2024</td>
+						</tr>
+						<tr>
+							<td>6</td>
+							<td class="unknown">≥ 10↑↑15</td>
+							<td class="unknown">unknown</td>
+							<td class="unknown">BB(6) — currently unknown</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+
+			<div class="bb-callout reveal reveal-delay-3">
+				<p>
+					<strong>Why does this matter?</strong> The Busy Beaver function is
+					intimately connected to the <strong>Halting Problem</strong>. If you
+					could compute Σ(n) for all n, you could decide whether any Turing
+					Machine halts — but Turing proved the Halting Problem is undecidable.
+					Therefore Σ(n) must itself be uncomputable. This illustrates a deep
+					truth: even the <em>simplest</em>
+					computational systems — machines with just a handful of states — can
+					produce behaviour that is fundamentally beyond the reach of any
+					algorithm to predict.
+				</p>
+			</div>
+		</section>
+
+		<hr class="section-divider" />
+
+		<!-- ========================================================
+         SECTION 6 — SIMULATOR CAPABILITIES
+    ======================================================== -->
+		<section class="section" id="simulator">
+			<p class="section-label reveal">06 — The Simulator</p>
+			<h2 class="section-title reveal reveal-delay-1">What You Can Do</h2>
+			<p class="section-body reveal reveal-delay-2">
+				The simulator lets you build, run, and analyse any Turing Machine
+				configuration interactively. Designed for students, researchers, and the
+				curious alike.
+			</p>
+
+			<div class="capabilities-grid reveal reveal-delay-2">
+				<div class="capability-item">
+					<span class="cap-number">01</span>
+					<p class="cap-text">Define a custom set of machine states</p>
+				</div>
+				<div class="capability-item">
+					<span class="cap-number">02</span>
+					<p class="cap-text">Build transition rules via an editable table</p>
+				</div>
+				<div class="capability-item">
+					<span class="cap-number">03</span>
+					<p class="cap-text">Supply any input string to the tape</p>
+				</div>
+				<div class="capability-item">
+					<span class="cap-number">04</span>
+					<p class="cap-text">
+						Step through computation one transition at a time
+					</p>
+				</div>
+				<div class="capability-item">
+					<span class="cap-number">05</span>
+					<p class="cap-text">
+						Watch the tape update in real-time as the head moves
+					</p>
+				</div>
+				<div class="capability-item">
+					<span class="cap-number">06</span>
+					<p class="cap-text">
+						Observe live state graph animation during execution
+					</p>
+				</div>
+				<div class="capability-item">
+					<span class="cap-number">07</span>
+					<p class="cap-text">
+						View full computation trace and jump to any step
+					</p>
+				</div>
+				<div class="capability-item">
+					<span class="cap-number">08</span>
+					<p class="cap-text">
+						Analyse tape growth and head-position complexity charts
+					</p>
+				</div>
+				<div class="capability-item">
+					<span class="cap-number">09</span>
+					<p class="cap-text">
+						Detect loops automatically with built-in loop detector
+					</p>
+				</div>
+				<div class="capability-item">
+					<span class="cap-number">10</span>
+					<p class="cap-text">
+						Explore classic Busy Beaver machines and watch them run
+					</p>
+				</div>
+				<div class="capability-item">
+					<span class="cap-number">11</span>
+					<p class="cap-text">Load preset example machines with one click</p>
+				</div>
+				<div class="capability-item">
+					<span class="cap-number">12</span>
+					<p class="cap-text">Export the computation trace to CSV</p>
+				</div>
+			</div>
+		</section>
+
+		<hr class="section-divider" />
+
+		<!-- ========================================================
+         CTA
+    ======================================================== -->
+		<section class="cta-section">
+			<h2 class="reveal">Ready to experiment?</h2>
+			<p class="reveal reveal-delay-1">
+				Launch the interactive simulator and build your own Turing Machines. No
+				setup required — runs entirely in the browser.
+			</p>
+			<a href="simulator.html" class="btn-cta reveal reveal-delay-2">
+				Run the Turing Machine Simulator
+				<span class="btn-arrow">→</span>
+			</a>
+		</section>
+
+		<!-- ========================================================
+         FOOTER
+    ======================================================== -->
+		<footer class="footer">
+			<span class="footer-left">
+				Turing Machine Simulator &mdash; TAFL University Project
+			</span>
+			<span class="footer-right">∞ states explored</span>
+		</footer>
+
+		<script src="js/landing.js"></script>
+	</body>
+</html>

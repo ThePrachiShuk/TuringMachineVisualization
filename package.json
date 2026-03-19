@@ -1,0 +1,26 @@
+{
+	"name": "turing-machine-simulator",
+	"version": "1.0.0",
+	"description": "Advanced Interactive Turing Machine Simulator — Visual and Analytical Web Application",
+	"main": "index.html",
+	"scripts": {
+		"start": "npx http-server . -p 3000 -o --cors -c-1",
+		"dev": "npx http-server . -p 3000 -o --cors -c-1",
+		"serve": "npx http-server . -p 8080 --cors -c-1"
+	},
+	"keywords": [
+		"turing-machine",
+		"automata",
+		"theory-of-computation",
+		"educational",
+		"visualization"
+	],
+	"author": "College TAFL Project",
+	"license": "MIT",
+	"devDependencies": {
+		"http-server": "^14.1.1"
+	},
+	"engines": {
+		"node": ">=16.0.0"
+	}
+}
