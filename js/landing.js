@@ -29,14 +29,16 @@
      Nav background on scroll
   ------------------------- */
 	const nav = document.querySelector(".nav");
-	window.addEventListener(
-		"scroll",
-		() => {
-			nav.style.background =
-				window.scrollY > 40 ? "rgba(8,8,8,0.97)" : "rgba(8,8,8,0.85)";
-		},
-		{ passive: true },
-	);
+	const updateNavBackground = () => {
+		if (!nav) return;
+		const css = getComputedStyle(document.documentElement);
+		const topBg = css.getPropertyValue("--nav-bg").trim();
+		const scrollBg = css.getPropertyValue("--nav-bg-scrolled").trim();
+		nav.style.background = window.scrollY > 40 ? scrollBg : topBg;
+	};
+	window.addEventListener("scroll", updateNavBackground, { passive: true });
+	window.addEventListener("themechange", updateNavBackground);
+	updateNavBackground();
 
 	/* -------------------------
      Smooth anchor scroll
