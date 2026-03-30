@@ -665,6 +665,34 @@ body {
    SIMULATOR TAB
    ============================================================ */
 
+#tab-simulator {
+	min-height: 0;
+}
+
+.simulator-layout {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+}
+
+.simulator-top {
+	flex-shrink: 0;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.simulator-bottom {
+	flex: 1;
+	min-height: 220px;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	border-top: 1px solid var(--border);
+	background: var(--bg-secondary);
+}
+
 /* State Info Bar */
 .state-info-bar {
 	display: flex;
@@ -983,6 +1011,7 @@ body {
 
 .graph-container {
 	flex: 1;
+	min-height: 0;
 	position: relative;
 	overflow: hidden;
 }

@@ -15,6 +15,7 @@
 		<link rel="stylesheet" href="css/styles.css" />
 		<!-- D3.js v7 for state graph and complexity charts -->
 		<script src="https://d3js.org/d3.v7.min.js"></script>
+		<script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
 	</head>
 	<body>
 		<!-- ===== HEADER ===== -->
@@ -192,7 +193,6 @@
 				<!-- Tab Navigation -->
 				<nav class="tab-nav">
 					<button class="tab-btn active" data-tab="simulator">Simulator</button>
-					<button class="tab-btn" data-tab="graph">State Graph</button>
 					<button class="tab-btn" data-tab="timeline">Timeline</button>
 					<button class="tab-btn" data-tab="complexity">Complexity</button>
 					<button class="tab-btn" data-tab="beaver">Busy Beaver</button>
@@ -200,174 +200,179 @@
 
 				<!-- ===== TAB: SIMULATOR ===== -->
 				<div class="tab-pane active" id="tab-simulator">
-					<!-- Current Machine State Info Bar -->
-					<div class="state-info-bar">
-						<div class="info-chip">
-							<span class="info-label">State</span>
-							<span class="info-value" id="info-current-state">—</span>
-						</div>
-						<div class="info-chip">
-							<span class="info-label">Reading</span>
-							<span class="info-value" id="info-reading">—</span>
-						</div>
-						<div class="info-chip">
-							<span class="info-label">Writing</span>
-							<span class="info-value" id="info-writing">—</span>
-						</div>
-						<div class="info-chip">
-							<span class="info-label">Head Move</span>
-							<span class="info-value" id="info-direction">—</span>
-						</div>
-						<div class="info-chip">
-							<span class="info-label">Step</span>
-							<span class="info-value" id="info-step">0</span>
-						</div>
-						<div class="info-chip">
-							<span class="info-label">Tape Cells</span>
-							<span class="info-value" id="info-tape-cells">0</span>
-						</div>
-					</div>
-
-					<!-- Active Transition Display -->
-					<div class="transition-display" id="transition-display">
-						<span class="td-label">Active Transition:</span>
-						<span class="td-rule" id="td-rule"
-							>Configure a machine and press Apply</span
-						>
-					</div>
-
-					<!-- Tape Visualization -->
-					<div class="tape-section">
-						<div class="tape-label">
-							<span>← TAPE →</span>
-							<span class="tape-pos" id="tape-pos-label">Head @ 0</span>
-						</div>
-						<div class="tape-container" id="tape-container">
-							<div class="tape-scroll" id="tape-scroll">
-								<!-- Tape cells rendered dynamically -->
+					<div class="simulator-layout">
+						<div class="simulator-top">
+							<!-- Current Machine State Info Bar -->
+							<div class="state-info-bar">
+								<div class="info-chip">
+									<span class="info-label">State</span>
+									<span class="info-value" id="info-current-state">—</span>
+								</div>
+								<div class="info-chip">
+									<span class="info-label">Reading</span>
+									<span class="info-value" id="info-reading">—</span>
+								</div>
+								<div class="info-chip">
+									<span class="info-label">Writing</span>
+									<span class="info-value" id="info-writing">—</span>
+								</div>
+								<div class="info-chip">
+									<span class="info-label">Head Move</span>
+									<span class="info-value" id="info-direction">—</span>
+								</div>
+								<div class="info-chip">
+									<span class="info-label">Step</span>
+									<span class="info-value" id="info-step">0</span>
+								</div>
+								<div class="info-chip">
+									<span class="info-label">Tape Cells</span>
+									<span class="info-value" id="info-tape-cells">0</span>
+								</div>
 							</div>
-							<!-- Fixed head highlight — always centered, tape slides beneath -->
-							<div class="tape-head-frame" aria-hidden="true"></div>
-						</div>
-						<div class="head-indicator">▲</div>
-					</div>
 
-					<!-- Playback Controls -->
-					<div class="controls-bar">
-						<div class="controls-left">
-							<button
-								class="btn btn-control"
-								id="btn-step"
-								title="Execute one step"
-							>
-								Step
-							</button>
-							<button
-								class="btn btn-control btn-run"
-								id="btn-run"
-								title="Run continuously"
-							>
-								Run
-							</button>
-							<button
-								class="btn btn-control"
-								id="btn-pause"
-								title="Pause execution"
-								disabled
-							>
-								Pause
-							</button>
-							<button
-								class="btn btn-control btn-reset"
-								id="btn-reset"
-								title="Reset to initial configuration"
-							>
-								Reset
-							</button>
-						</div>
-						<div class="controls-right">
-							<label class="speed-label">Speed:</label>
-							<input
-								type="range"
-								id="speed-slider"
-								min="1"
-								max="10"
-								value="5"
-								class="speed-slider"
-								title="Adjust simulation speed"
-							/>
-							<span class="speed-value" id="speed-value">5</span>
-						</div>
-					</div>
-				</div>
+							<!-- Active Transition Display -->
+							<div class="transition-display" id="transition-display">
+								<span class="td-label">Active Transition:</span>
+								<span class="td-rule" id="td-rule"
+									>Configure a machine and press Apply</span
+								>
+							</div>
 
-				<!-- ===== TAB: STATE GRAPH ===== -->
-				<div class="tab-pane" id="tab-graph">
-					<div class="graph-toolbar">
-						<button class="btn btn-sm" id="btn-graph-reset-layout">
-							Reset Layout
-						</button>
-						<button class="btn btn-sm" id="btn-graph-zoom-fit">Fit View</button>
-						<div class="graph-legend">
-							<span class="legend-item"
-								><span class="legend-dot start"></span>Start State</span
-							>
-							<span class="legend-item"
-								><span class="legend-dot halt"></span>Halt State</span
-							>
-							<span class="legend-item"
-								><span class="legend-dot active"></span>Active State</span
-							>
-							<span class="legend-item"
-								><span class="legend-line active-line"></span>Active
-								Transition</span
-							>
+							<!-- Tape Visualization -->
+							<div class="tape-section">
+								<div class="tape-label">
+									<span>← TAPE →</span>
+									<span class="tape-pos" id="tape-pos-label">Head @ 0</span>
+								</div>
+								<div class="tape-container" id="tape-container">
+									<div class="tape-scroll" id="tape-scroll">
+										<!-- Tape cells rendered dynamically -->
+									</div>
+									<!-- Fixed head highlight — always centered, tape slides beneath -->
+									<div class="tape-head-frame" aria-hidden="true"></div>
+								</div>
+								<div class="head-indicator">▲</div>
+							</div>
+
+							<!-- Playback Controls -->
+							<div class="controls-bar">
+								<div class="controls-left">
+									<button
+										class="btn btn-control"
+										id="btn-step"
+										title="Execute one step"
+									>
+										Step
+									</button>
+									<button
+										class="btn btn-control btn-run"
+										id="btn-run"
+										title="Run continuously"
+									>
+										Run
+									</button>
+									<button
+										class="btn btn-control"
+										id="btn-pause"
+										title="Pause execution"
+										disabled
+									>
+										Pause
+									</button>
+									<button
+										class="btn btn-control btn-reset"
+										id="btn-reset"
+										title="Reset to initial configuration"
+									>
+										Reset
+									</button>
+								</div>
+								<div class="controls-right">
+									<label class="speed-label">Speed:</label>
+									<input
+										type="range"
+										id="speed-slider"
+										min="1"
+										max="10"
+										value="5"
+										class="speed-slider"
+										title="Adjust simulation speed"
+									/>
+									<span class="speed-value" id="speed-value">5</span>
+								</div>
+							</div>
 						</div>
-					</div>
-					<div class="graph-container" id="graph-container">
-						<svg id="state-graph-svg">
-							<defs>
-								<marker
-									id="arrow"
-									markerWidth="10"
-									markerHeight="7"
-									refX="9"
-									refY="3.5"
-									orient="auto"
-								>
-									<polygon points="0 0, 10 3.5, 0 7" fill="#7c8cf8" />
-								</marker>
-								<marker
-									id="arrow-active"
-									markerWidth="10"
-									markerHeight="7"
-									refX="9"
-									refY="3.5"
-									orient="auto"
-								>
-									<polygon points="0 0, 10 3.5, 0 7" fill="#f6c90e" />
-								</marker>
-								<marker
-									id="arrow-halt"
-									markerWidth="10"
-									markerHeight="7"
-									refX="9"
-									refY="3.5"
-									orient="auto"
-								>
-									<polygon points="0 0, 10 3.5, 0 7" fill="#2ecc71" />
-								</marker>
-								<filter id="glow">
-									<feGaussianBlur stdDeviation="3" result="coloredBlur" />
-									<feMerge>
-										<feMergeNode in="coloredBlur" />
-										<feMergeNode in="SourceGraphic" />
-									</feMerge>
-								</filter>
-							</defs>
-						</svg>
-						<div class="graph-empty-msg" id="graph-empty-msg">
-							Apply a machine configuration to view the state graph
+
+						<div class="simulator-bottom">
+							<div class="graph-toolbar">
+								<button class="btn btn-sm" id="btn-graph-reset-layout">
+									Reset Layout
+								</button>
+								<button class="btn btn-sm" id="btn-graph-zoom-fit">
+									Fit View
+								</button>
+								<div class="graph-legend">
+									<span class="legend-item"
+										><span class="legend-dot start"></span>Start State</span
+									>
+									<span class="legend-item"
+										><span class="legend-dot halt"></span>Halt State</span
+									>
+									<span class="legend-item"
+										><span class="legend-dot active"></span>Active State</span
+									>
+									<span class="legend-item"
+										><span class="legend-line active-line"></span>Active
+										Transition</span
+									>
+								</div>
+							</div>
+							<div class="graph-container" id="graph-container">
+								<svg id="state-graph-svg">
+									<defs>
+										<marker
+											id="arrow"
+											markerWidth="10"
+											markerHeight="7"
+											refX="9"
+											refY="3.5"
+											orient="auto"
+										>
+											<polygon points="0 0, 10 3.5, 0 7" fill="#7c8cf8" />
+										</marker>
+										<marker
+											id="arrow-active"
+											markerWidth="10"
+											markerHeight="7"
+											refX="9"
+											refY="3.5"
+											orient="auto"
+										>
+											<polygon points="0 0, 10 3.5, 0 7" fill="#f6c90e" />
+										</marker>
+										<marker
+											id="arrow-halt"
+											markerWidth="10"
+											markerHeight="7"
+											refX="9"
+											refY="3.5"
+											orient="auto"
+										>
+											<polygon points="0 0, 10 3.5, 0 7" fill="#2ecc71" />
+										</marker>
+										<filter id="glow">
+											<feGaussianBlur stdDeviation="3" result="coloredBlur" />
+											<feMerge>
+												<feMergeNode in="coloredBlur" />
+												<feMergeNode in="SourceGraphic" />
+											</feMerge>
+										</filter>
+									</defs>
+								</svg>
+								<div class="graph-empty-msg" id="graph-empty-msg">
+									Apply a machine configuration to view the state graph
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>

@@ -867,10 +867,6 @@ class App {
 		if (tabId === "complexity") {
 			setTimeout(() => this.complexityTracker.rebuildFrom(this.tm.history), 50);
 		}
-		// Fit state graph when switching to graph tab
-		if (tabId === "graph") {
-			setTimeout(() => this.stateGraph.fitView(), 100);
-		}
 	}
 
 	// ---------------------------------------------------------------
