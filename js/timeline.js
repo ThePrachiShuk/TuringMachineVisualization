@@ -156,9 +156,9 @@ class Timeline {
 			e.state,
 			e.headPos,
 			e.transition ? e.transition.read : "",
-			e.transition ? e.transition.write : "",
-			e.transition ? e.transition.direction : "",
-			e.transition ? e.transition.nextState : "",
+			e.transition && !e.transition.halt ? e.transition.write : "",
+			e.transition && !e.transition.halt ? e.transition.move : "",
+			e.transition && !e.transition.halt ? e.transition.next : "",
 			`"${e.tapeStr}"`,
 		]);
 
@@ -188,9 +188,9 @@ class Timeline {
       <td style="color:var(--accent-purple);font-weight:700">${entry.state}</td>
       <td style="font-family:var(--font-mono)">${entry.headPos}</td>
       <td style="font-family:var(--font-mono);color:var(--accent-cyan)">${t ? t.read : "—"}</td>
-      <td style="font-family:var(--font-mono);color:var(--accent-yellow)">${t ? t.write : "—"}</td>
-      <td style="color:var(--text-secondary)">${t ? t.direction : "—"}</td>
-      <td style="color:var(--accent-blue)">${t ? t.nextState : "—"}</td>
+	      <td style="font-family:var(--font-mono);color:var(--accent-yellow)">${t && !t.halt ? t.write : t && t.halt ? "Halt" : "—"}</td>
+	      <td style="color:var(--text-secondary)">${t && !t.halt ? t.move : "—"}</td>
+	      <td style="color:var(--accent-blue)">${t && !t.halt ? t.next : "—"}</td>
       <td class="tape-snapshot-cell">${this._renderTapeSnap(entry)}</td>
     `;
 

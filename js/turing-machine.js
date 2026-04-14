@@ -17,8 +17,10 @@ class TuringMachine {
 		this.alphabet = [];
 		this.blank = "_";
 		this.startState = "";
-		this.haltStates = new Set();
-		// transitions: Map<"state,symbol" → {write, direction, nextState}>
+		this.finalStates = new Set();
+		this.rejectStates = new Set();
+		this.haltingStates = new Set();
+		// transitions: Map<"state,symbol" → {next, write, move, halt}>
 		this.transitions = new Map();
 
 		// Runtime state
@@ -47,8 +49,10 @@ class TuringMachine {
 	 *   alphabet:   string[]   — tape symbols (including blank)
 	 *   blank:      string     — the blank symbol
 	 *   startState: string
-	 *   haltStates: string[]
-	 *   rules:      Array<{state, read, write, direction, nextState}>
+	 *   acceptStates: string[]  (final/accepting states)
+	 *   rejectStates: string[]  (explicit reject-halt states)
+	 *   haltStates: string[]    (legacy alias for acceptStates)
+	 *   rules:      Array<{state, read, write, move, next, halt}>
 	 *   maxSteps:   number?
 	 * }
 	 */
@@ -57,7 +61,9 @@ class TuringMachine {
 		this.alphabet = [...config.alphabet];
 		this.blank = config.blank || "_";
 		this.startState = config.startState;
-		this.haltStates = new Set(config.haltStates);
+		this.finalStates = new Set(config.acceptStates || config.haltStates || []);
+		this.rejectStates = new Set(config.rejectStates || []);
+		this.haltingStates = new Set([...this.finalStates, ...this.rejectStates]);
 		this.maxSteps = config.maxSteps || 50000;
 
 		// Build the transition map
@@ -65,10 +71,13 @@ class TuringMachine {
 		for (const rule of config.rules || []) {
 			if (!rule.state || rule.read === undefined || rule.read === "") continue;
 			const key = this._key(rule.state, rule.read);
+			const move = rule.move || rule.direction || "R";
+			const next = rule.next || rule.nextState || "";
 			this.transitions.set(key, {
+				next,
 				write: rule.write,
-				direction: rule.direction || "R",
-				nextState: rule.nextState,
+				move,
+				halt: Boolean(rule.halt),
 			});
 		}
 	}
@@ -85,13 +94,6 @@ class TuringMachine {
 		this.isAccepted = false;
 		this.haltReason = "";
 		this.history = [];
-
-		// Check whether the start state itself is a halt state
-		if (this.haltStates.has(this.currentState)) {
-			this.isHalted = true;
-			this.isAccepted = true;
-			this.haltReason = "accepted";
-		}
 
 		// Record step 0 (initial configuration)
 		this._record(null);
@@ -125,16 +127,38 @@ class TuringMachine {
 		const transition = this.transitions.get(key);
 
 		if (!transition) {
-			// Reject: no transition defined for (state, symbol)
 			this.isHalted = true;
-			this.isAccepted = false;
+			this.isAccepted = this.finalStates.has(this.currentState);
 			this.haltReason = "no_transition";
 			this._record(null);
 			return {
 				status: "no_transition",
-				accepted: false,
+				accepted: this.isAccepted,
 				state: this.currentState,
 				symbol: readSym,
+			};
+		}
+
+		if (transition.halt) {
+			this.isHalted = true;
+			this.isAccepted = this.finalStates.has(this.currentState);
+			this.haltReason = "explicit_halt";
+			const applied = {
+				fromState: this.currentState,
+				read: readSym,
+				halt: true,
+			};
+			this._record(applied);
+			return {
+				status: "explicit_halt",
+				accepted: this.isAccepted,
+				transition: applied,
+				stepCount: this.stepCount,
+				currentState: this.currentState,
+				headPos: this.tape.headPos,
+				symbol: readSym,
+				tapeNonBlank: this.tape.getNonBlankCount(),
+				tapeSpan: this.tape.getSpan(),
 			};
 		}
 
@@ -142,33 +166,26 @@ class TuringMachine {
 		const fromState = this.currentState;
 		this.tape.write(transition.write);
 
-		if (transition.direction === "L") this.tape.moveLeft();
-		else if (transition.direction === "R") this.tape.moveRight();
-		// 'S' (Stay) — no head movement
+		if (transition.move === "L") this.tape.moveLeft();
+		else this.tape.moveRight();
 
-		this.currentState = transition.nextState;
+		this.currentState = transition.next;
 		this.stepCount++;
 
 		const applied = {
 			fromState,
 			read: readSym,
 			write: transition.write,
-			direction: transition.direction,
-			nextState: transition.nextState,
+			move: transition.move,
+			next: transition.next,
+			halt: false,
 		};
 
 		// Record the configuration after applying the transition
 		this._record(applied);
 
-		// Check halt
-		if (this.haltStates.has(this.currentState)) {
-			this.isHalted = true;
-			this.isAccepted = true;
-			this.haltReason = "accepted";
-		}
-
 		return {
-			status: this.isHalted ? "halted" : "running",
+			status: "running",
 			accepted: this.isAccepted,
 			transition: applied,
 			stepCount: this.stepCount,
@@ -194,8 +211,9 @@ class TuringMachine {
 		this.tape.restore(snap.tape);
 		this.currentState = snap.state;
 		this.stepCount = snap.step;
-		this.isHalted = this.haltStates.has(this.currentState) || snap.isHalted;
+		this.isHalted = snap.isHalted;
 		this.isAccepted = snap.isAccepted;
+		this.haltReason = snap.haltReason || "";
 		return true;
 	}
 
@@ -230,12 +248,42 @@ class TuringMachine {
 	validate() {
 		const errors = [];
 		if (!this.startState) errors.push("No start state defined");
-		if (this.haltStates.size === 0) errors.push("No halt states defined");
+		if (this.finalStates.size === 0)
+			errors.push("No final states defined for acceptance");
 		if (!this.states.includes(this.startState))
 			errors.push(`Start state "${this.startState}" not in state list`);
-		for (const h of this.haltStates) {
+		for (const h of this.finalStates) {
 			if (!this.states.includes(h))
-				errors.push(`Halt state "${h}" not in state list`);
+				errors.push(`Final state "${h}" not in state list`);
+		}
+		for (const r of this.rejectStates) {
+			if (!this.states.includes(r))
+				errors.push(`Reject state "${r}" not in state list`);
+		}
+		for (const a of this.finalStates) {
+			if (this.rejectStates.has(a)) {
+				errors.push(`State "${a}" cannot be both accept and reject`);
+			}
+		}
+
+		for (const [key, t] of this.transitions.entries()) {
+			const [state, symbol] = key.split(",");
+			if (!this.states.includes(state)) {
+				errors.push(`Transition uses unknown state "${state}"`);
+			}
+			if (!this.alphabet.includes(symbol) && symbol !== this.blank) {
+				errors.push(`Transition reads invalid symbol "${symbol}"`);
+			}
+			if (t.halt) continue;
+			if (!this.states.includes(t.next)) {
+				errors.push(`Transition points to unknown state "${t.next}"`);
+			}
+			if (!this.alphabet.includes(t.write) && t.write !== this.blank) {
+				errors.push(`Transition writes invalid symbol "${t.write}"`);
+			}
+			if (t.move !== "L" && t.move !== "R") {
+				errors.push(`Transition move must be L or R, got "${t.move}"`);
+			}
 		}
 		return errors;
 	}
@@ -258,6 +306,7 @@ class TuringMachine {
 			transition: appliedTransition,
 			isHalted: this.isHalted,
 			isAccepted: this.isAccepted,
+			haltReason: this.haltReason,
 			tapeNonBlank: this.tape.getNonBlankCount(),
 			tapeSpan: this.tape.getSpan(),
 		});

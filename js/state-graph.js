@@ -66,19 +66,20 @@ class StateGraph {
 		const edgeMap = new Map();
 		for (const [key, rule] of transitions.entries()) {
 			const [fromState, readSym] = key.split(",");
-			const edgeKey = `${fromState}->${rule.nextState}`;
+			if (rule.halt) continue;
+			const edgeKey = `${fromState}->${rule.next}`;
 			if (!edgeMap.has(edgeKey)) {
 				edgeMap.set(edgeKey, {
 					source: fromState,
-					target: rule.nextState,
+					target: rule.next,
 					labels: [],
-					isSelf: fromState === rule.nextState,
+					isSelf: fromState === rule.next,
 				});
 			}
 			edgeMap.get(edgeKey).labels.push({
 				read: readSym,
 				write: rule.write,
-				direction: rule.direction,
+				move: rule.move,
 			});
 		}
 
@@ -248,7 +249,7 @@ class StateGraph {
 			.style("font-size", "9px")
 			.style("fill", this.COLORS.labelNormal)
 			.text((d) =>
-				d.labels.map((l) => `${l.read}/${l.write},${l.direction}`).join(" | "),
+				d.labels.map((l) => `${l.read}/${l.write},${l.move}`).join(" | "),
 			);
 
 		const nodeGroup = this.g.append("g").attr("class", "nodes");
@@ -472,8 +473,7 @@ class StateGraph {
 		});
 
 		this.g.selectAll("g.edge").each(function (d) {
-			const isActive =
-				at && at.fromState === d.source && at.nextState === d.target;
+			const isActive = at && at.fromState === d.source && at.next === d.target;
 
 			d3.select(this)
 				.select("path")

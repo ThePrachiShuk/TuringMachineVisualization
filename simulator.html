@@ -110,18 +110,32 @@
 						/>
 					</div>
 
-					<!-- Halt States -->
+					<!-- Accept States -->
 					<div class="config-section">
 						<label class="config-label"
-							>Halt / Accept States
+							>Accept States <span class="hint">(comma-separated)</span></label
+						>
+						<input
+							type="text"
+							id="cfg-accept"
+							class="config-input"
+							placeholder="qA"
+							value="qA"
+						/>
+					</div>
+
+					<!-- Reject / Halt States -->
+					<div class="config-section">
+						<label class="config-label"
+							>Reject / Halt States
 							<span class="hint">(comma-separated)</span></label
 						>
 						<input
 							type="text"
-							id="cfg-halt"
+							id="cfg-reject"
 							class="config-input"
-							placeholder="qA, qR"
-							value="qA, qR"
+							placeholder="qR"
+							value="qR"
 						/>
 					</div>
 
@@ -152,29 +166,23 @@
 						/>
 					</div>
 
-					<!-- Transition Rules Table -->
+					<!-- Transition Function Table -->
 					<div class="config-section">
 						<div class="rules-header">
-							<label class="config-label">Transition Rules</label>
-							<button class="btn btn-sm btn-accent" id="btn-add-rule">
-								+ Add Rule
+							<label class="config-label">Transition Table</label>
+							<button class="btn btn-sm btn-outline" id="btn-refresh-table">
+								Rebuild Grid
 							</button>
 						</div>
+						<p class="table-help">
+							Cell format: <span class="mono">(q1, X, R)</span>,
+							<span class="mono">Halt</span>, or empty. Accept and reject rows
+							are fixed to <span class="mono">Halt</span>.
+						</p>
 						<div class="rules-table-wrapper">
-							<table class="rules-table" id="rules-table">
-								<thead>
-									<tr>
-										<th>State</th>
-										<th>Read</th>
-										<th>Write</th>
-										<th>Dir</th>
-										<th>Next</th>
-										<th></th>
-									</tr>
-								</thead>
-								<tbody id="rules-tbody">
-									<!-- Rows injected dynamically -->
-								</tbody>
+							<table class="rules-table" id="transition-table">
+								<thead id="transition-thead"></thead>
+								<tbody id="transition-tbody"></tbody>
 							</table>
 						</div>
 					</div>
@@ -232,10 +240,13 @@
 
 							<!-- Active Transition Display -->
 							<div class="transition-display" id="transition-display">
-								<span class="td-label">Active Transition:</span>
-								<span class="td-rule" id="td-rule"
-									>Configure a machine and press Apply</span
-								>
+								<div class="td-label">Current Transition</div>
+								<div class="td-card" id="td-card">
+									<div class="td-card-top" id="td-query">δ(—, —)</div>
+									<div class="td-card-bottom" id="td-value">
+										Configure a machine and press Apply
+									</div>
+								</div>
 							</div>
 
 							<!-- Tape Visualization -->
@@ -252,6 +263,7 @@
 									<div class="tape-head-frame" aria-hidden="true"></div>
 								</div>
 								<div class="head-indicator">▲</div>
+								<div class="head-state" id="head-state-label">—</div>
 							</div>
 
 							<!-- Playback Controls -->

@@ -27,7 +27,8 @@ const EXAMPLE_MACHINES = [
 			alphabet: ["0", "1", "_"],
 			blank: "_",
 			startState: "q0",
-			haltStates: ["qDone"],
+			acceptStates: ["qDone"],
+			rejectStates: [],
 			rules: [
 				// Scan to end of number
 				{ state: "q0", read: "0", write: "0", direction: "R", nextState: "q0" },
@@ -96,7 +97,8 @@ const EXAMPLE_MACHINES = [
 			alphabet: ["0", "1", "#", "X", "_"],
 			blank: "_",
 			startState: "q0",
-			haltStates: ["qY", "qN"],
+			acceptStates: ["qY"],
+			rejectStates: ["qN"],
 			rules: [
 				// Read first symbol
 				{ state: "q0", read: "0", write: "X", direction: "R", nextState: "q1" },
@@ -134,7 +136,8 @@ const EXAMPLE_MACHINES = [
 			alphabet: ["1", "+", "_"],
 			blank: "_",
 			startState: "q0",
-			haltStates: ["qDone"],
+			acceptStates: ["qDone"],
+			rejectStates: [],
 			rules: [
 				// Scan to find the '+' sign, replace it with '1'
 				{ state: "q0", read: "1", write: "1", direction: "R", nextState: "q0" },
@@ -163,7 +166,8 @@ const EXAMPLE_MACHINES = [
 			alphabet: ["0", "1"],
 			blank: "0",
 			startState: "A",
-			haltStates: ["H"],
+			acceptStates: ["H"],
+			rejectStates: [],
 			rules: [
 				{ state: "A", read: "0", write: "1", direction: "R", nextState: "B" },
 				{ state: "A", read: "1", write: "1", direction: "L", nextState: "C" },
@@ -184,7 +188,8 @@ const EXAMPLE_MACHINES = [
 			alphabet: ["0", "1", "_"],
 			blank: "_",
 			startState: "q0",
-			haltStates: ["qH"],
+			acceptStates: ["qH"],
+			rejectStates: [],
 			rules: [
 				{ state: "q0", read: "0", write: "1", direction: "R", nextState: "q1" },
 				{ state: "q0", read: "1", write: "0", direction: "R", nextState: "q1" },
@@ -205,10 +210,11 @@ class TapeRenderer {
 	constructor(scrollId) {
 		this._scroll = document.getElementById(scrollId);
 		this._posLabel = document.getElementById("tape-pos-label");
+		this._headStateLabel = document.getElementById("head-state-label");
 		this._flashSet = new Set(); // positions currently flashing
 	}
 
-	render(tape, flashPos = null) {
+	render(tape, flashPos = null, currentState = "") {
 		if (!tape) return;
 		const cells = tape.getVisibleRange(5);
 
@@ -249,6 +255,9 @@ class TapeRenderer {
 
 		if (this._posLabel) {
 			this._posLabel.textContent = `Head @ ${tape.headPos}`;
+		}
+		if (this._headStateLabel) {
+			this._headStateLabel.textContent = currentState || "—";
 		}
 	}
 }
@@ -303,7 +312,7 @@ class App {
 			this._loadBusyBeaver(bb, autoRun),
 		);
 
-		this._buildDefaultRules();
+		this._initializeTransitionTable();
 		this._bindEvents();
 		this._buildExamplesList();
 		this._showToast(
@@ -314,99 +323,241 @@ class App {
 	}
 
 	// ---------------------------------------------------------------
-	// Configuration panel: rules table management
+	// Configuration panel: transition table management
 	// ---------------------------------------------------------------
 
-	_buildDefaultRules() {
-		// Default: a simple binary copy / pass-through with return
+	_initializeTransitionTable() {
 		const defaults = [
-			{ state: "q0", read: "0", write: "0", direction: "R", nextState: "q0" },
-			{ state: "q0", read: "1", write: "1", direction: "R", nextState: "q0" },
-			{ state: "q0", read: "_", write: "_", direction: "L", nextState: "qA" },
+			{
+				state: "q0",
+				read: "0",
+				write: "0",
+				move: "R",
+				next: "q0",
+				halt: false,
+			},
+			{
+				state: "q0",
+				read: "1",
+				write: "1",
+				move: "R",
+				next: "q0",
+				halt: false,
+			},
+			{
+				state: "q0",
+				read: "_",
+				write: "_",
+				move: "R",
+				next: "qA",
+				halt: false,
+			},
 		];
-		const tbody = document.getElementById("rules-tbody");
-		tbody.innerHTML = "";
-		for (const r of defaults) this._addRuleRow(r);
+		this._rebuildTransitionTable(defaults);
 	}
 
-	_addRuleRow(data = {}) {
-		const tbody = document.getElementById("rules-tbody");
-		const tr = document.createElement("tr");
+	_getStatesAndAlphabet() {
+		const parse = (str) =>
+			str
+				.split(",")
+				.map((s) => s.trim())
+				.filter(Boolean);
 
-		const fields = [
-			{ key: "state", placeholder: "q0" },
-			{ key: "read", placeholder: "0" },
-			{ key: "write", placeholder: "0" },
-			{ key: "nextState", placeholder: "q1" },
-		];
+		const states = parse(document.getElementById("cfg-states").value);
+		const alphabet = parse(document.getElementById("cfg-alphabet").value);
+		const blank = (document.getElementById("cfg-blank").value.trim() || "_")[0];
+		if (!alphabet.includes(blank)) alphabet.push(blank);
 
-		const dirCell = document.createElement("td");
-		const dirSel = document.createElement("select");
-		dirSel.className = "rule-select";
-		["R", "L", "S"].forEach((d) => {
-			const opt = document.createElement("option");
-			opt.value = d;
-			opt.textContent = d;
-			if ((data.direction || "R") === d) opt.selected = true;
-			dirSel.appendChild(opt);
-		});
+		return { states, alphabet, blank };
+	}
 
-		for (const f of fields) {
-			if (f.key === "write") {
-				// Insert direction column before 'nextState'
-				// (already done by inserting fields in order)
+	_ruleToCellText(rule) {
+		if (!rule) return "";
+		if (rule.halt) return "Halt";
+		const next = rule.next || rule.nextState;
+		const move = rule.move || rule.direction;
+		return `(${next}, ${rule.write}, ${move})`;
+	}
+
+	_parseTransitionCell(raw, state, symbol, states, alphabet, blank) {
+		const text = (raw || "").trim();
+		if (!text) return { empty: true, valid: true };
+
+		if (/^halt$/i.test(text)) {
+			return {
+				empty: false,
+				valid: true,
+				rule: { state, read: symbol, halt: true },
+			};
+		}
+
+		const match = text.match(
+			/^\(\s*([^,\s]+)\s*,\s*([^,\s])\s*,\s*([LR])\s*\)$/i,
+		);
+		if (!match) {
+			return {
+				empty: false,
+				valid: false,
+				error: "Use (next_state, write_symbol, L|R) or Halt",
+			};
+		}
+
+		const [, next, write, moveRaw] = match;
+		const move = moveRaw.toUpperCase();
+		if (!states.includes(next)) {
+			return {
+				empty: false,
+				valid: false,
+				error: `Unknown state: ${next}`,
+			};
+		}
+		if (!alphabet.includes(write) && write !== blank) {
+			return {
+				empty: false,
+				valid: false,
+				error: `Invalid write symbol: ${write}`,
+			};
+		}
+
+		return {
+			empty: false,
+			valid: true,
+			rule: {
+				state,
+				read: symbol,
+				next,
+				write,
+				move,
+				halt: false,
+			},
+		};
+	}
+
+	_rebuildTransitionTable(seedRules = []) {
+		const { states, alphabet, blank } = this._getStatesAndAlphabet();
+		const start = document.getElementById("cfg-start").value.trim();
+		const accepts = new Set(
+			document
+				.getElementById("cfg-accept")
+				.value.split(",")
+				.map((s) => s.trim())
+				.filter(Boolean),
+		);
+		const rejects = new Set(
+			document
+				.getElementById("cfg-reject")
+				.value.split(",")
+				.map((s) => s.trim())
+				.filter(Boolean),
+		);
+		const haltingRows = new Set([...accepts, ...rejects]);
+
+		const ruleMap = new Map();
+		for (const rule of seedRules || []) {
+			if (!rule.state || rule.read === undefined) continue;
+			ruleMap.set(`${rule.state},${rule.read}`, this._ruleToCellText(rule));
+		}
+
+		if (!seedRules || seedRules.length === 0) {
+			const existingInputs = document.querySelectorAll(
+				"#transition-tbody .rule-input",
+			);
+			for (const inp of existingInputs) {
+				const state = inp.dataset.state;
+				const symbol = inp.dataset.symbol;
+				ruleMap.set(`${state},${symbol}`, inp.value);
 			}
 		}
 
-		// Build cells: State | Read | Write | Dir | Next | ✕
-		const makeInput = (f) => {
-			const td = document.createElement("td");
-			const inp = document.createElement("input");
-			inp.type = "text";
-			inp.className = "rule-input";
-			inp.placeholder = f.placeholder;
-			inp.value = data[f.key] || "";
-			inp.maxLength = 10;
-			td.appendChild(inp);
-			return td;
-		};
+		const thead = document.getElementById("transition-thead");
+		const tbody = document.getElementById("transition-tbody");
+		thead.innerHTML = "";
+		tbody.innerHTML = "";
 
-		tr.appendChild(makeInput({ key: "state", placeholder: "q0" }));
-		tr.appendChild(makeInput({ key: "read", placeholder: "0" }));
-		tr.appendChild(makeInput({ key: "write", placeholder: "0" }));
-		dirCell.appendChild(dirSel);
-		tr.appendChild(dirCell);
-		tr.appendChild(makeInput({ key: "nextState", placeholder: "q1" }));
+		const headRow = document.createElement("tr");
+		const corner = document.createElement("th");
+		corner.textContent = "δ";
+		corner.className = "state-col";
+		headRow.appendChild(corner);
+		for (const symbol of alphabet) {
+			const th = document.createElement("th");
+			th.textContent = symbol === blank ? "B" : symbol;
+			headRow.appendChild(th);
+		}
+		thead.appendChild(headRow);
 
-		const delTd = document.createElement("td");
-		const delBtn = document.createElement("button");
-		delBtn.className = "btn-del-rule";
-		delBtn.textContent = "✕";
-		delBtn.title = "Remove this rule";
-		delBtn.addEventListener("click", () => tr.remove());
-		delTd.appendChild(delBtn);
-		tr.appendChild(delTd);
+		for (const state of states) {
+			const tr = document.createElement("tr");
+			const stateCell = document.createElement("td");
+			stateCell.className = "state-cell";
+			if (state === start) stateCell.classList.add("start-state");
+			if (accepts.has(state)) stateCell.classList.add("final-state");
+			stateCell.textContent = `${state === start ? "→ " : ""}${state}`;
+			tr.appendChild(stateCell);
 
-		tbody.appendChild(tr);
-		return tr;
+			for (const symbol of alphabet) {
+				const td = document.createElement("td");
+				const input = document.createElement("input");
+				const key = `${state},${symbol}`;
+				const isHaltingState = haltingRows.has(state);
+				input.type = "text";
+				input.className = "rule-input";
+				input.dataset.state = state;
+				input.dataset.symbol = symbol;
+				input.placeholder = "(q1, X, R) / Halt";
+				input.value = isHaltingState ? "Halt" : ruleMap.get(key) || "";
+				input.readOnly = isHaltingState;
+				if (isHaltingState) {
+					input.classList.add("final-halt-cell");
+					input.title = "Accept/reject rows are halting by definition";
+				}
+				input.addEventListener("input", () => this._validateTransitionTable());
+				td.appendChild(input);
+				tr.appendChild(td);
+			}
+
+			tbody.appendChild(tr);
+		}
+
+		this._validateTransitionTable();
 	}
 
-	_readRulesFromTable() {
-		const rows = document.querySelectorAll("#rules-tbody tr");
+	_readTransitionsFromTable() {
+		const { states, alphabet, blank } = this._getStatesAndAlphabet();
+		const inputs = document.querySelectorAll("#transition-tbody .rule-input");
 		const rules = [];
-		for (const row of rows) {
-			const inputs = row.querySelectorAll(".rule-input");
-			const sel = row.querySelector(".rule-select");
-			if (inputs.length < 4) continue;
-			const state = inputs[0].value.trim();
-			const read = inputs[1].value.trim();
-			const write = inputs[2].value.trim();
-			const nextState = inputs[3].value.trim();
-			const direction = sel ? sel.value : "R";
-			if (!state || read === "" || write === "" || !nextState) continue;
-			rules.push({ state, read, write, direction, nextState });
+		const errors = [];
+
+		for (const input of inputs) {
+			const state = input.dataset.state;
+			const symbol = input.dataset.symbol;
+			const parsed = this._parseTransitionCell(
+				input.value,
+				state,
+				symbol,
+				states,
+				alphabet,
+				blank,
+			);
+
+			if (!parsed.valid) {
+				input.classList.add("invalid");
+				input.title = parsed.error;
+				errors.push(`δ(${state}, ${symbol}): ${parsed.error}`);
+				continue;
+			}
+
+			input.classList.remove("invalid");
+			input.title = "";
+			if (!parsed.empty) rules.push(parsed.rule);
 		}
-		return rules;
+
+		return { rules, errors };
+	}
+
+	_validateTransitionTable() {
+		const result = this._readTransitionsFromTable();
+		return result.errors;
 	}
 
 	// ---------------------------------------------------------------
@@ -418,7 +569,8 @@ class App {
 		const alphStr = document.getElementById("cfg-alphabet").value;
 		const blank = (document.getElementById("cfg-blank").value.trim() || "_")[0];
 		const start = document.getElementById("cfg-start").value.trim();
-		const haltStr = document.getElementById("cfg-halt").value;
+		const acceptStr = document.getElementById("cfg-accept").value;
+		const rejectStr = document.getElementById("cfg-reject").value;
 		const inputStr = document.getElementById("cfg-input").value;
 		const maxSteps =
 			parseInt(document.getElementById("cfg-maxsteps").value, 10) || 50000;
@@ -431,15 +583,29 @@ class App {
 
 		const states = parse(statesStr);
 		const alphabet = parse(alphStr);
-		const haltStates = parse(haltStr);
-		const rules = this._readRulesFromTable();
+		const acceptStates = parse(acceptStr);
+		const rejectStates = parse(rejectStr);
+		if (!alphabet.includes(blank)) alphabet.push(blank);
+
+		this._rebuildTransitionTable();
+		const transitionRead = this._readTransitionsFromTable();
+		if (transitionRead.errors.length > 0) {
+			this._showToast(
+				`Configuration error: ${transitionRead.errors[0]}`,
+				"error",
+				5000,
+			);
+			return false;
+		}
+		const rules = transitionRead.rules;
 
 		const config = {
 			states,
 			alphabet,
 			blank,
 			startState: start,
-			haltStates,
+			acceptStates,
+			rejectStates,
 			rules,
 			maxSteps,
 		};
@@ -477,12 +643,12 @@ class App {
 			[...this.tm.states],
 			this.tm.transitions,
 			this.tm.startState,
-			this.tm.haltStates,
+			this.tm.haltingStates,
 		);
 		setTimeout(() => this.stateGraph.fitView(), 400);
 
 		// Render initial tape
-		this.tapeRenderer.render(this.tm.tape);
+		this.tapeRenderer.render(this.tm.tape, null, this.tm.currentState);
 
 		// Update info bar
 		this._updateInfoBar(null);
@@ -523,13 +689,13 @@ class App {
 		// Render tape
 		const flashPos = result.transition
 			? result.headPos -
-				(result.transition.direction === "R"
+				(result.transition.move === "R"
 					? 1
-					: result.transition.direction === "L"
+					: result.transition.move === "L"
 						? -1
 						: 0)
 			: null;
-		this.tapeRenderer.render(this.tm.tape, flashPos);
+		this.tapeRenderer.render(this.tm.tape, flashPos, this.tm.currentState);
 
 		// Flash the instruction bar
 		const _td = document.getElementById("transition-display");
@@ -632,7 +798,7 @@ class App {
 						headPos: this.tm.tape.headPos,
 					});
 				}
-				if (!this._loopWarned) {
+				if (!this._loopWarned && !this.tm.isHalted) {
 					const lr = this.loopDetector.check(this.tm, lastResult);
 					if (lr && lr.detected) {
 						this._loopWarned = true;
@@ -647,7 +813,7 @@ class App {
 
 			if (lastResult) {
 				// Render the final state of the batch
-				this.tapeRenderer.render(this.tm.tape);
+				this.tapeRenderer.render(this.tm.tape, null, this.tm.currentState);
 				this.stateGraph.update(
 					this.tm.currentState,
 					lastResult.transition || null,
@@ -705,7 +871,7 @@ class App {
 			});
 		}
 
-		this.tapeRenderer.render(this.tm.tape);
+		this.tapeRenderer.render(this.tm.tape, null, this.tm.currentState);
 		this.stateGraph.resetHighlights(this.tm.startState);
 		this._updateInfoBar(null);
 		this._setStatusBadge("READY", "");
@@ -723,7 +889,7 @@ class App {
 
 		if (!this.tm.jumpToHistory(historyIndex)) return;
 
-		this.tapeRenderer.render(this.tm.tape);
+		this.tapeRenderer.render(this.tm.tape, null, this.tm.currentState);
 		const entry = this.tm.history[historyIndex];
 		this.stateGraph.update(entry.state, entry.transition || null);
 		this._displayedHistoryIndex = historyIndex;
@@ -756,19 +922,18 @@ class App {
 		const c = example.config;
 		const stateStr = c.states.join(", ");
 		const alphabStr = c.alphabet.join(", ");
-		const haltStr = c.haltStates.join(", ");
+		const acceptStr = (c.acceptStates || c.haltStates || []).join(", ");
+		const rejectStr = (c.rejectStates || []).join(", ");
 
 		document.getElementById("cfg-states").value = stateStr;
 		document.getElementById("cfg-alphabet").value = alphabStr;
 		document.getElementById("cfg-blank").value = c.blank;
 		document.getElementById("cfg-start").value = c.startState;
-		document.getElementById("cfg-halt").value = haltStr;
+		document.getElementById("cfg-accept").value = acceptStr;
+		document.getElementById("cfg-reject").value = rejectStr;
 		document.getElementById("cfg-input").value = example.input;
 
-		// Rebuild rules table
-		const tbody = document.getElementById("rules-tbody");
-		tbody.innerHTML = "";
-		for (const r of c.rules) this._addRuleRow(r);
+		this._rebuildTransitionTable(c.rules || []);
 
 		this._applyConfig();
 	}
@@ -788,17 +953,15 @@ class App {
 		document.getElementById("cfg-alphabet").value = bb.alphabet.join(", ");
 		document.getElementById("cfg-blank").value = bb.blank;
 		document.getElementById("cfg-start").value = bb.startState;
-		document.getElementById("cfg-halt").value = bb.haltStates.join(", ");
+		document.getElementById("cfg-accept").value = bb.haltStates.join(", ");
+		document.getElementById("cfg-reject").value = "";
 		document.getElementById("cfg-input").value = "";
 		document.getElementById("cfg-maxsteps").value = Math.max(
 			bb.expectedSteps * 2,
 			100000,
 		);
 
-		// Build rules table
-		const tbody = document.getElementById("rules-tbody");
-		tbody.innerHTML = "";
-		for (const r of bb.rules) this._addRuleRow(r);
+		this._rebuildTransitionTable(bb.rules || []);
 
 		const ok = this._applyConfig();
 		if (!ok) return;
@@ -830,16 +993,35 @@ class App {
 		if (result && result.transition) {
 			const t = result.transition;
 			document.getElementById("info-reading").textContent = t.read || "—";
-			document.getElementById("info-writing").textContent = t.write || "—";
-			document.getElementById("info-direction").textContent =
-				t.direction || "—";
-			document.getElementById("td-rule").textContent =
-				`(${t.fromState}, ${t.read}) → (${t.write}, ${t.direction}, ${t.nextState})`;
+			document.getElementById("info-writing").textContent = t.halt
+				? "—"
+				: t.write || "—";
+			document.getElementById("info-direction").textContent = t.halt
+				? "HALT"
+				: t.move || "—";
+			document.getElementById("td-query").textContent =
+				`δ(${t.fromState}, ${t.read})`;
+			document.getElementById("td-value").textContent = t.halt
+				? "Halt"
+				: `(${t.next}, ${t.write}, ${t.move})`;
 		} else {
 			document.getElementById("info-reading").textContent = cfg.symbol || "—";
 			document.getElementById("info-writing").textContent = "—";
 			document.getElementById("info-direction").textContent = "—";
-			document.getElementById("td-rule").textContent = "—";
+			document.getElementById("td-query").textContent =
+				`δ(${cfg.state || "—"}, ${cfg.symbol || "—"})`;
+			const lookup =
+				cfg.state && cfg.symbol
+					? this.tm.getTransition(cfg.state, cfg.symbol)
+					: null;
+			if (!lookup) {
+				document.getElementById("td-value").textContent = "Undefined (halts)";
+			} else if (lookup.halt) {
+				document.getElementById("td-value").textContent = "Halt";
+			} else {
+				document.getElementById("td-value").textContent =
+					`(${lookup.next}, ${lookup.write}, ${lookup.move})`;
+			}
 		}
 	}
 
@@ -880,15 +1062,16 @@ class App {
 		const inner = document.getElementById("halt-modal-inner");
 		if (!modal) return;
 
-		const accepted = result && result.accepted;
+		const accepted = result ? result.accepted : this.tm.isAccepted;
 		title.textContent = accepted
 			? "✓ Machine Accepted (Halted)"
 			: "✗ Machine Rejected / Halted";
 		inner.className = `modal ${accepted ? "modal-success" : ""}`;
 		info.innerHTML = `
-      <p>The machine has <strong>${accepted ? "accepted (reached a halt state)" : "halted without accepting"}</strong>.</p>
+		<p>The machine has <strong>${accepted ? "accepted (halted in a final state)" : "halted without acceptance"}</strong>.</p>
       <p>Total steps: <span style="color:var(--accent-cyan)">${this.tm.stepCount}</span></p>
       <p>Final state: <span style="color:var(--accent-purple)">${this.tm.currentState}</span></p>
+		<p>Halt reason: <span style="color:var(--accent-blue)">${this.tm.haltReason || "halted"}</span></p>
       <p>Non-blank tape cells: <span style="color:var(--accent-yellow)">${this.tm.tape.getNonBlankCount()}</span></p>
       <p>Tape span used: <span style="color:var(--accent-yellow)">${this.tm.tape.getSpan()}</span> cells</p>
       ${result && result.status === "max_steps" ? '<p style="color:var(--accent-red)">⚠ Safety step limit reached</p>' : ""}
@@ -949,8 +1132,21 @@ class App {
 			.getElementById("btn-apply-config")
 			.addEventListener("click", () => this._applyConfig());
 		document
-			.getElementById("btn-add-rule")
-			.addEventListener("click", () => this._addRuleRow());
+			.getElementById("btn-refresh-table")
+			.addEventListener("click", () => this._rebuildTransitionTable());
+
+		[
+			"cfg-states",
+			"cfg-alphabet",
+			"cfg-blank",
+			"cfg-start",
+			"cfg-accept",
+			"cfg-reject",
+		].forEach((id) => {
+			const el = document.getElementById(id);
+			if (!el) return;
+			el.addEventListener("change", () => this._rebuildTransitionTable());
+		});
 
 		// Playback controls
 		document
@@ -1084,7 +1280,7 @@ class App {
 			clearTimeout(resizeTimer);
 			resizeTimer = setTimeout(() => {
 				if (this._machineReady) {
-					this.tapeRenderer.render(this.tm.tape);
+					this.tapeRenderer.render(this.tm.tape, null, this.tm.currentState);
 				}
 			}, 200);
 		});

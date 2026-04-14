@@ -52,7 +52,15 @@ class LoopDetector {
 	 */
 	check(tm, result) {
 		if (this._loopDetected) return { detected: true, ...this._loopDetails };
-		if (result.status === "halted" || result.status === "accepted") return null;
+		if (
+			tm.isHalted ||
+			result.status === "halted" ||
+			result.status === "accepted" ||
+			result.status === "explicit_halt" ||
+			result.status === "no_transition" ||
+			result.status === "max_steps"
+		)
+			return null;
 
 		const step = tm.stepCount;
 
