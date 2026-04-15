@@ -93,7 +93,7 @@ const EXAMPLE_MACHINES = [
 			'Checks if a binary string is a palindrome. Input must end with #. Accepts (→ qY) or rejects (→ qN). Try "1001#".',
 		input: "1001#",
 		config: {
-			states: ["q0", "q1", "q2", "q3", "q4", "qY", "qN"],
+			states: ["q0", "q1", "q2", "q3", "q4", "q5", "qY", "qN"],
 			alphabet: ["0", "1", "#", "X", "_"],
 			blank: "_",
 			startState: "q0",
@@ -110,19 +110,26 @@ const EXAMPLE_MACHINES = [
 				{ state: "q1", read: "1", write: "1", direction: "R", nextState: "q1" },
 				{ state: "q1", read: "X", write: "X", direction: "R", nextState: "q1" },
 				{ state: "q1", read: "#", write: "#", direction: "L", nextState: "q3" },
-				// Found # going left — check last char is 0
+				// Found # going left - check last char is 0
 				{ state: "q3", read: "0", write: "X", direction: "L", nextState: "q4" },
 				{ state: "q3", read: "1", write: "1", direction: "L", nextState: "qN" },
-				{ state: "q3", read: "X", write: "X", direction: "L", nextState: "q0" },
+				{ state: "q3", read: "X", write: "X", direction: "L", nextState: "q3" },
+				{ state: "q3", read: "_", write: "_", direction: "R", nextState: "q0" },
 				// Scan right looking for last char (1 needed)
 				{ state: "q2", read: "0", write: "0", direction: "R", nextState: "q2" },
 				{ state: "q2", read: "1", write: "1", direction: "R", nextState: "q2" },
 				{ state: "q2", read: "X", write: "X", direction: "R", nextState: "q2" },
-				{ state: "q2", read: "#", write: "#", direction: "L", nextState: "q4" }, // reuse q4 wrong
-				// Found # going left — check last char is 1
-				{ state: "q4", read: "1", write: "X", direction: "L", nextState: "q4" },
-				{ state: "q4", read: "0", write: "0", direction: "L", nextState: "qN" },
-				{ state: "q4", read: "X", write: "X", direction: "L", nextState: "q0" },
+				{ state: "q2", read: "#", write: "#", direction: "L", nextState: "q5" },
+				// Found # going left - check last char is 1
+				{ state: "q5", read: "1", write: "X", direction: "L", nextState: "q4" },
+				{ state: "q5", read: "0", write: "0", direction: "L", nextState: "qN" },
+				{ state: "q5", read: "X", write: "X", direction: "L", nextState: "q5" },
+				{ state: "q5", read: "_", write: "_", direction: "R", nextState: "q0" },
+				// Return to the left end and repeat
+				{ state: "q4", read: "0", write: "0", direction: "L", nextState: "q4" },
+				{ state: "q4", read: "1", write: "1", direction: "L", nextState: "q4" },
+				{ state: "q4", read: "X", write: "X", direction: "L", nextState: "q4" },
+				{ state: "q4", read: "_", write: "_", direction: "R", nextState: "q0" },
 			],
 		},
 	},
