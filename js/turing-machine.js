@@ -34,6 +34,9 @@ class TuringMachine {
 		// History: array of configuration snapshots
 		this.history = [];
 
+		// Undo stack for efficient reverse stepping (delta-based)
+		this.undoStack = [];
+
 		// Safety limit
 		this.maxSteps = 50000;
 	}
@@ -94,6 +97,7 @@ class TuringMachine {
 		this.isAccepted = false;
 		this.haltReason = "";
 		this.history = [];
+		this.undoStack = [];
 
 		// Record step 0 (initial configuration)
 		this._record(null);
@@ -112,9 +116,13 @@ class TuringMachine {
 			return { status: this.haltReason || "halted", accepted: this.isAccepted };
 		}
 
+		const undoEntry = this._captureUndoDelta();
+
 		if (this.stepCount >= this.maxSteps) {
 			this.isHalted = true;
 			this.haltReason = "max_steps";
+			this.undoStack.push(undoEntry);
+			this._record(null);
 			return {
 				status: "max_steps",
 				accepted: false,
@@ -130,6 +138,7 @@ class TuringMachine {
 			this.isHalted = true;
 			this.isAccepted = this.finalStates.has(this.currentState);
 			this.haltReason = "no_transition";
+			this.undoStack.push(undoEntry);
 			this._record(null);
 			return {
 				status: "no_transition",
@@ -148,6 +157,7 @@ class TuringMachine {
 				read: readSym,
 				halt: true,
 			};
+			this.undoStack.push(undoEntry);
 			this._record(applied);
 			return {
 				status: "explicit_halt",
@@ -171,6 +181,7 @@ class TuringMachine {
 
 		this.currentState = transition.next;
 		this.stepCount++;
+		this.undoStack.push(undoEntry);
 
 		const applied = {
 			fromState,
@@ -203,7 +214,7 @@ class TuringMachine {
 
 	/**
 	 * Restore the machine to the configuration recorded at historyIndex.
-	 * This does NOT truncate history — it is a read-only jump for display/review.
+	 * Future history is truncated so subsequent stepping continues from this point.
 	 */
 	jumpToHistory(index) {
 		if (index < 0 || index >= this.history.length) return false;
@@ -214,7 +225,56 @@ class TuringMachine {
 		this.isHalted = snap.isHalted;
 		this.isAccepted = snap.isAccepted;
 		this.haltReason = snap.haltReason || "";
+
+		// Keep history/undo aligned with the currently materialized machine state.
+		this.history.length = index + 1;
+		this.undoStack.length = index;
 		return true;
+	}
+
+	/** Returns true when a reverse step is available. */
+	canStepBack() {
+		return this.undoStack.length > 0;
+	}
+
+	/**
+	 * Reverse exactly one previously executed step.
+	 * Uses delta restoration (single-cell revert + previous control state).
+	 */
+	stepBack() {
+		if (this.undoStack.length === 0) {
+			return { status: "no_history" };
+		}
+
+		const undo = this.undoStack.pop();
+
+		if (undo.prevHadCell) {
+			this.tape.cells[undo.cellPos] = undo.prevSymbol;
+		} else {
+			delete this.tape.cells[undo.cellPos];
+		}
+
+		this.tape.headPos = undo.prevHeadPos;
+		this.tape.leftmost = undo.prevLeftmost;
+		this.tape.rightmost = undo.prevRightmost;
+
+		this.currentState = undo.prevState;
+		this.stepCount = undo.prevStepCount;
+		this.isHalted = undo.prevIsHalted;
+		this.isAccepted = undo.prevIsAccepted;
+		this.haltReason = undo.prevHaltReason;
+
+		if (this.history.length > 1) {
+			this.history.pop();
+		}
+
+		return {
+			status: "reverted",
+			stepCount: this.stepCount,
+			currentState: this.currentState,
+			headPos: this.tape.headPos,
+			revertedCellPos: undo.cellPos,
+		};
 	}
 
 	// ---------------------------------------------------------------
@@ -310,5 +370,25 @@ class TuringMachine {
 			tapeNonBlank: this.tape.getNonBlankCount(),
 			tapeSpan: this.tape.getSpan(),
 		});
+	}
+
+	_captureUndoDelta() {
+		const cellPos = this.tape.headPos;
+		const prevHadCell = this.tape.cells[cellPos] !== undefined;
+		const prevSymbol = prevHadCell ? this.tape.cells[cellPos] : this.blank;
+
+		return {
+			cellPos,
+			prevHadCell,
+			prevSymbol,
+			prevHeadPos: this.tape.headPos,
+			prevLeftmost: this.tape.leftmost,
+			prevRightmost: this.tape.rightmost,
+			prevState: this.currentState,
+			prevStepCount: this.stepCount,
+			prevIsHalted: this.isHalted,
+			prevIsAccepted: this.isAccepted,
+			prevHaltReason: this.haltReason,
+		};
 	}
 }

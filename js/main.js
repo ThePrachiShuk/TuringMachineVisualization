@@ -301,6 +301,21 @@ class App {
 		this._displayedHistoryIndex = 0;
 	}
 
+	_syncPlaybackControls() {
+		const btnStep = document.getElementById("btn-step");
+		const btnStepBack = document.getElementById("btn-step-back");
+		const btnRun = document.getElementById("btn-run");
+		const btnPause = document.getElementById("btn-pause");
+
+		if (btnStep) btnStep.disabled = this._running || !this._machineReady;
+		if (btnStepBack) {
+			btnStepBack.disabled =
+				this._running || !this._machineReady || !this.tm.canStepBack();
+		}
+		if (btnRun) btnRun.disabled = this._running || !this._machineReady;
+		if (btnPause) btnPause.disabled = !this._running;
+	}
+
 	// ---------------------------------------------------------------
 	// Bootstrap
 	// ---------------------------------------------------------------
@@ -665,6 +680,7 @@ class App {
 		this._displayedHistoryIndex = 0;
 		this.timeline.setCurrentStep(0);
 		this.stateGraph.resetHighlights(this.tm.startState);
+		this._syncPlaybackControls();
 
 		this._showToast(
 			`Machine configured: ${states.length} states, ${rules.length} rules`,
@@ -690,6 +706,61 @@ class App {
 
 		const result = this.tm.step();
 		this._afterStep(result);
+	}
+
+	_stepBack() {
+		if (!this._machineReady) {
+			this._showToast("Apply a configuration first", "error");
+			return;
+		}
+
+		if (this._running) this._pauseRun();
+
+		if (!this.tm.canStepBack()) {
+			this._showToast("No earlier step available", "info", 1800);
+			this._syncPlaybackControls();
+			return;
+		}
+
+		const reverted = this.tm.stepBack();
+		if (!reverted || reverted.status !== "reverted") {
+			this._syncPlaybackControls();
+			return;
+		}
+
+		this.tapeRenderer.render(
+			this.tm.tape,
+			reverted.revertedCellPos,
+			this.tm.currentState,
+		);
+
+		const historyIndex = this.tm.history.length - 1;
+		const entry = this.tm.history[historyIndex] || null;
+		this.stateGraph.update(
+			this.tm.currentState,
+			entry ? entry.transition : null,
+		);
+
+		this._displayedHistoryIndex = historyIndex;
+		this.timeline.rebuildFrom(this.tm.history);
+		this.timeline.setCurrentStep(historyIndex);
+		this.complexityTracker.rebuildFrom(this.tm.history);
+
+		this._updateInfoBar(
+			entry && entry.transition
+				? {
+						transition: entry.transition,
+						headPos: entry.headPos,
+						stepCount: entry.step,
+					}
+				: null,
+		);
+
+		// Rewind creates a new execution branch; clear stale loop signatures.
+		this.loopDetector.reset();
+		this._loopWarned = false;
+		this._setStatusBadge("PAUSED", "paused");
+		this._syncPlaybackControls();
 	}
 
 	_afterStep(result) {
@@ -756,6 +827,8 @@ class App {
 		} else {
 			this._setStatusBadge("RUNNING", "running");
 		}
+
+		this._syncPlaybackControls();
 	}
 
 	_run() {
@@ -769,10 +842,12 @@ class App {
 		}
 		if (this._running) return;
 
+		// Always align detector with the currently active history branch.
+		this.loopDetector.bootstrapFromHistory(this.tm.history);
+		this._loopWarned = false;
+
 		this._running = true;
-		document.getElementById("btn-run").disabled = true;
-		document.getElementById("btn-pause").disabled = false;
-		document.getElementById("btn-step").disabled = true;
+		this._syncPlaybackControls();
 
 		this._setStatusBadge("RUNNING", "running");
 		this._scheduleRun();
@@ -850,9 +925,7 @@ class App {
 			clearTimeout(this._runInterval);
 			this._runInterval = null;
 		}
-		document.getElementById("btn-run").disabled = false;
-		document.getElementById("btn-pause").disabled = true;
-		document.getElementById("btn-step").disabled = false;
+		this._syncPlaybackControls();
 		if (!this.tm.isHalted) this._setStatusBadge("PAUSED", "paused");
 	}
 
@@ -884,6 +957,7 @@ class App {
 		this._setStatusBadge("READY", "");
 		this._displayedHistoryIndex = 0;
 		this.timeline.setCurrentStep(0);
+		this._syncPlaybackControls();
 	}
 
 	// ---------------------------------------------------------------
@@ -915,7 +989,12 @@ class App {
 					}
 				: null,
 		);
+
+		// Timeline jump also changes execution branch; reset loop detector state.
+		this.loopDetector.reset();
+		this._loopWarned = false;
 		this._setStatusBadge("PAUSED", "paused");
+		this._syncPlaybackControls();
 	}
 
 	// ---------------------------------------------------------------
@@ -1160,6 +1239,9 @@ class App {
 			.getElementById("btn-step")
 			.addEventListener("click", () => this._step());
 		document
+			.getElementById("btn-step-back")
+			.addEventListener("click", () => this._stepBack());
+		document
 			.getElementById("btn-run")
 			.addEventListener("click", () => this._run());
 		document
@@ -1274,6 +1356,10 @@ class App {
 				if (this._running) this._pauseRun();
 				else this._step();
 			}
+			if (e.key === "b" || e.key === "B") {
+				e.preventDefault();
+				this._stepBack();
+			}
 			if (e.key === "r" || e.key === "R") {
 				e.preventDefault();
 				this._run();
@@ -1291,6 +1377,8 @@ class App {
 				}
 			}, 200);
 		});
+
+		this._syncPlaybackControls();
 	}
 }
 

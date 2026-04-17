@@ -32,6 +32,7 @@ class LoopDetector {
 		this._tapeHistory = []; // [{step, nonBlank}]
 		this._loopDetected = false;
 		this._loopDetails = null;
+		this._lastObservedStep = null;
 	}
 
 	/** Reset detector state (call when machine is reset or re-configured) */
@@ -40,6 +41,31 @@ class LoopDetector {
 		this._tapeHistory = [];
 		this._loopDetected = false;
 		this._loopDetails = null;
+		this._lastObservedStep = null;
+	}
+
+	/**
+	 * Rebuild detector memory from the current machine history branch.
+	 * This keeps loop checks consistent after rewind/jump/pause-resume.
+	 */
+	bootstrapFromHistory(history = []) {
+		this.reset();
+
+		if (!Array.isArray(history) || history.length === 0) return;
+
+		for (const entry of history) {
+			if (!entry || !entry.tape || typeof entry.state !== "string") continue;
+			const hash = this._hashFromSnapshot(
+				entry.state,
+				entry.headPos,
+				entry.tape,
+			);
+			this._configHashes.add(hash);
+		}
+
+		const last = history[history.length - 1];
+		this._lastObservedStep =
+			last && typeof last.step === "number" ? last.step : null;
 	}
 
 	/**
@@ -51,6 +77,16 @@ class LoopDetector {
 	 *   Returns a detection object if a loop is found, otherwise null.
 	 */
 	check(tm, result) {
+		const step = tm.stepCount;
+
+		// If execution moved backwards (step back / timeline rewind),
+		// stale signatures from the old branch must be discarded.
+		if (this._lastObservedStep !== null && step <= this._lastObservedStep) {
+			this.reset();
+		}
+
+		this._lastObservedStep = step;
+
 		if (this._loopDetected) return { detected: true, ...this._loopDetails };
 		if (
 			tm.isHalted ||
@@ -61,8 +97,6 @@ class LoopDetector {
 			result.status === "max_steps"
 		)
 			return null;
-
-		const step = tm.stepCount;
 
 		// ── 1. Exact configuration repeat ────────────────────────────
 		if (
@@ -124,5 +158,14 @@ class LoopDetector {
 	}
 	get loopDetails() {
 		return this._loopDetails;
+	}
+
+	_hashFromSnapshot(state, headPos, tapeSnap) {
+		const cells = (tapeSnap && tapeSnap.cells) || {};
+		const positions = Object.keys(cells)
+			.map(Number)
+			.sort((a, b) => a - b);
+		const tapeStr = positions.map((p) => `${p}:${cells[p]}`).join(",");
+		return `${state}|${headPos}|${tapeStr}`;
 	}
 }
